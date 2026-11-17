@@ -1,0 +1,75 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+# Node
+node_modules/
+dist/
+.vite/
+# IDE/OS
+.DS_Store
+.idea/
+.vscode/
+# logs
+*.log
+
+# Local dependency, tooling and generated files
+venv/
+env/
+.virtualenv/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+coverage/
+__MACOSX/
+._*
+
+# Local database files and private backups
+backups/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.dump
+*.pgdump
+*.sql
+*.sql.gz
+*.bak
+*.backup
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Private key and certificate material
+.ssh/
+id_rsa*
+id_ed25519*
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Local authentication configuration
+.envrc
+.netrc
+.pgpass
+.npmrc
+.pypirc
+.htpasswd
+*.ppk
+*.der
+*.dump.gz
