@@ -31,6 +31,8 @@ export default function EmployeeCheckout() {
   const [refresh, setRefresh] = useState(0)
   const attempt = useRef(null)
   const inFlight = useRef(false)
+  const isOwner = user?.role === 'OWNER'
+  const checkoutTitle = isOwner ? 'Owner Checkout' : 'Employee Checkout'
   const allowed = Boolean(token && ['OWNER', 'EMPLOYEE'].includes(user?.role))
   useEffect(() => {
     if (!allowed) return
@@ -74,9 +76,9 @@ export default function EmployeeCheckout() {
     } finally { inFlight.current = false; setSaving(false) }
   }
   return <div className="dashboard-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div>{user?.role === 'OWNER' && <><Link className="nav-item" to="/">▦ Overview</Link><Link className="nav-item" to="/inventory">▤ Inventory</Link><Link className="nav-item" to="/vendors">▧ Vendors</Link><Link className="nav-item" to="/purchasing">▣ Purchasing</Link></>}<div className="nav-item selected">▣ Employee Checkout</div><div className="sidebar-bottom"><span className="status-dot"/> PostgreSQL-backed</div></aside>
+    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div>{isOwner && <><Link className="nav-item" to="/">▦ Overview</Link><Link className="nav-item" to="/inventory">▤ Inventory</Link><Link className="nav-item" to="/vendors">▧ Vendors</Link><Link className="nav-item" to="/purchasing">▣ Purchasing</Link></>}<div className="nav-item selected">▣ {isOwner ? 'Checkout' : checkoutTitle}</div><div className="sidebar-bottom"><span className="status-dot"/> PostgreSQL-backed</div></aside>
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{user?.name || user?.email} · {user?.role}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
-      <div className="content"><div className="heading-row"><div><div className="eyebrow">LIVE STOCK</div><h1>Employee Checkout</h1><p className="subtle">Record actual items used. Available stock excludes reserved quantities.</p></div><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
+      <div className="content"><div className="heading-row"><div><div className="eyebrow">LIVE STOCK</div><h1>{checkoutTitle}</h1><p className="subtle">Record actual items used. Available stock excludes reserved quantities.</p></div><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
         {error && <p role="alert" className="error-banner">{error}</p>}
         {success && <section role="status" className="success-banner"><strong>{success.replayed ? 'Checkout already recorded' : 'Checkout completed'}</strong><p>{success.quantity} × {success.itemName} · Transaction #{success.transaction.id}. Remaining available: {success.available_stock}.</p></section>}
         <section className="panel checkout-panel"><h2>Record item usage</h2><p className="subtle">Every confirmed checkout is applied atomically by FastAPI and recorded in PostgreSQL.</p>
