@@ -63,7 +63,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Connection checks are available at `/setup`; API documentation is at `http://127.0.0.1:8000/docs`. Accounts are provisioned through the configured seed or deployment process; the application has no public self-registration.
+Open `http://127.0.0.1:5173`. For local development, API documentation is at `http://127.0.0.1:8000/docs`. Accounts are provisioned through the configured seed or deployment process; the application has no public self-registration.
 
 For containers and public hosting, see [deployment](docs/DEPLOYMENT.md). For a repeatable demonstration, see the [demo guide](docs/DEMO_GUIDE.md).
 

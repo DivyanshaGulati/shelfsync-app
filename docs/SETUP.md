@@ -55,7 +55,7 @@ cp -n .env.example .env
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173` and use `/setup` to check both connections. Leave `VITE_API_BASE_URL` blank for the Vite development proxy. The optional override is a public API origin. Keep credentials out of all `VITE_*` variables because Vite embeds them in browser assets.
+Open `http://127.0.0.1:5173`. Leave `VITE_API_BASE_URL` blank for the Vite development proxy. The optional override is a public API origin. Keep credentials out of all `VITE_*` variables because Vite embeds them in browser assets.
 
 ### First sign-in and demo data
 

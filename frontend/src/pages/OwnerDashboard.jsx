@@ -104,7 +104,7 @@ export default function OwnerDashboard() {
       <div className="nav-item muted"><Link to="/inventory">▤ <span>Inventory</span></Link></div>
       <Link className="nav-item" to="/vendors">▧ <span>Vendors</span></Link>
       <Link className="nav-item" to="/purchasing">▣ <span>Purchasing</span></Link>
-      <Link className="nav-item" to="/checkout">▣ Checkout</Link><div className="sidebar-bottom"><Link to="/setup">Connectivity</Link><Link to="/contact">Contact</Link></div>
+      <Link className="nav-item" to="/checkout">▣ Checkout</Link><div className="sidebar-bottom"><Link to="/contact">Contact</Link></div>
     </aside>
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Overview</strong></span><div className="topbar-actions">{user && <><span>{user.name} · OWNER</span><button onClick={logout} className="button-light">Sign out</button></>}</div></header>

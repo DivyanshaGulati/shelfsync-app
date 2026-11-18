@@ -46,7 +46,6 @@ export default function VendorsPage() {
       <div className="nav-item selected" aria-current="page">▧ Vendors</div>
       <Link className="nav-item" to="/purchasing">▣ Purchasing</Link>
       <Link className="nav-item" to="/checkout">▣ Checkout</Link>
-      <div className="sidebar-bottom"><Link to="/setup">Connectivity</Link></div>
     </aside>
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Vendors</strong></span>

@@ -25,7 +25,7 @@ docker compose -p shelfsync-local up -d --wait
 docker compose -p shelfsync-local ps
 ```
 
-Open `http://127.0.0.1:8080/setup` and check `/api/health`, `/api/health/db`, `/docs`, sign-in and frontend deep links. Choose unused host ports if another local stack already uses the defaults. To provision a disposable demo, set Owner email and seed passwords in root `.env`, then run `docker compose -p shelfsync-local run --rm --no-deps backend python -m app.db.seed --confirm-demo`. Never seed a production database.
+Open `http://127.0.0.1:8080` and check `/api/health`, `/api/health/db`, sign-in and frontend deep links. The Caddy-served site returns 404 for `/setup`, `/docs`, `/redoc` and `/openapi.json`. Choose unused host ports if another local stack already uses the defaults. To provision a disposable demo, set Owner email and seed passwords in root `.env`, then run `docker compose -p shelfsync-local run --rm --no-deps backend python -m app.db.seed --confirm-demo`. Never seed a production database.
 
 ## Public hosting
 

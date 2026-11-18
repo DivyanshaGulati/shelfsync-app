@@ -1,7 +1,12 @@
 {$CADDY_SITE::80} {
 	encode zstd gzip
 
-	@backend path /api /api/* /docs /docs/* /redoc /openapi.json
+	@internalPages path /setup /setup/* /docs /docs/* /redoc /redoc/* /openapi.json /openapi.json/*
+	handle @internalPages {
+		respond "Not found" 404
+	}
+
+	@backend path /api /api/*
 	handle @backend {
 		reverse_proxy backend:8000
 	}
