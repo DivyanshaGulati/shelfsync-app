@@ -224,10 +224,9 @@ td.empty { padding: 24px 12px; }
 .insights-feedback { margin: 14px 0; }
 .insights-feedback[role="status"] { color: var(--muted); font-size: 14px; }
 .insights-feedback .button-light { margin-top: 8px; }
-.insights-grid { display: grid; grid-template-columns: minmax(0, 1.48fr) minmax(0, 1fr); gap: 18px; margin-top: 24px; }
-.insights-grid .panel { padding: clamp(14px, 1.7vw, 24px); }
-.insights-grid h2, .insights-tip h2 { font-size: clamp(1.15rem, 1.7vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; }
-.insights-grid h2 .icon-tile { width: 42px; height: 42px; color: var(--accent); border-radius: 50%; }
+.insights-report { margin-top: 24px; padding: clamp(14px, 1.7vw, 24px); }
+.insights-report h2, .insights-tip h2 { font-size: clamp(1.15rem, 1.7vw, 1.5rem); font-weight: 750; letter-spacing: -.025em; }
+.insights-report .icon-tile { width: 42px; height: 42px; color: var(--accent); border-radius: 50%; }
 .insights-empty { margin-top: 14px; color: var(--muted); font-size: 14px; }
 .insights-table { margin-top: 12px; border: 0; }
 .insights-table table { min-width: 0; }
@@ -242,18 +241,7 @@ td.empty { padding: 24px 12px; }
 .insights-summary p { margin-top: 8px; white-space: pre-line; }
 .insights-tip { margin: 20px 0; background: #f6f2ff; }
 .insights-tip p { margin-top: 8px; }
-.insights-history-list { display: grid; gap: 10px; margin-top: 14px; }
-.insights-history-item {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
-  width: 100%; padding: 10px 14px; min-height: 48px;
-  border-radius: 13px; border: 1px solid #d0dff8; background: #f8faff; text-align: left;
-}
-.insights-history-item svg { color: var(--accent); width: 19px; height: 19px; }
-.insights-history-item time { color: var(--ink); font-size: 14px; font-weight: 650; }
-.insights-history-item span { color: var(--ink); font-size: 21px; line-height: 1; }
-.insights-history-item:hover, .insights-history-item[aria-pressed="true"] { border-color: #a0b8ee; background: #eaf0ff; }
-.insights-history-item:focus-visible, .insight-highlights :is(a, button):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.insights-more { margin-top: 14px; }
+.insight-highlights :is(a, button):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .checkout-form { display: grid; gap: 18px; margin-top: 20px; }
 .checkout-form button { justify-self: start; }
@@ -270,7 +258,7 @@ td.empty { padding: 24px 12px; }
 .contact-form .button-primary { justify-self: start; }
 
 @media (max-width: 1050px) {
-  .insights-grid { grid-template-columns: minmax(0, 1fr); }
+  .insights-report { margin-top: 18px; }
 }
 @media (max-width: 780px) {
   .purchase-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

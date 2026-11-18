@@ -9,17 +9,12 @@ import { useAuth } from '../lib/AuthContext.jsx'
 import { requestJSON } from '../lib/api.js'
 
 const insightsUrl = '/api/inventory/ai-insights'
-const historyPageSize = 3
-const emptyHistory = { items: [], next_before_id: null }
-const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'medium' })
 const numberFormat = new Intl.NumberFormat('en-IN')
 
 export default function InventoryInsightsPage() {
   const { token, user, logout } = useAuth()
   const owner = Boolean(token && user?.role === 'OWNER')
   const [stock, setStock] = useState(null)
-  const [history, setHistory] = useState(emptyHistory)
-  const [selectedId, setSelectedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -35,14 +30,8 @@ export default function InventoryInsightsPage() {
     const options = { token, signal: controller.signal }
     setLoading(true)
     setLoadError('')
-    Promise.all([
-      requestJSON(`${insightsUrl}/snapshot`, options),
-      requestJSON(`${insightsUrl}?limit=${historyPageSize}`, options),
-    ]).then(([snapshot, reports]) => {
-      if (controller.signal.aborted) return
-      setStock(snapshot)
-      setHistory(reports)
-      setSelectedId(null)
+    requestJSON(`${insightsUrl}/snapshot`, options).then(snapshot => {
+      if (!controller.signal.aborted) setStock(snapshot)
     }).catch(error => {
       if (controller.signal.aborted) return
       if (error.status === 401) logout()
@@ -70,7 +59,6 @@ export default function InventoryInsightsPage() {
       else setActionError({
         generate: error.message === 'Stock changed during generation. Generate the insight again.'
           ? error.message : 'Could not generate an insight. Try again.',
-        history: 'Could not load earlier insights. Try again.',
         tip: 'Could not load the growth tip. Try again.',
       }[action])
     } finally {
@@ -83,17 +71,7 @@ export default function InventoryInsightsPage() {
     run('generate', async options => {
       const report = await requestJSON(insightsUrl, { ...options, method: 'POST' })
       if (options.signal.aborted) return
-      setHistory(current => ({ ...current, items: [report, ...current.items] }))
-      setSelectedId(report.id)
       setStock(report)
-    })
-  }
-
-  function loadEarlier() {
-    run('history', async options => {
-      const older = await requestJSON(`${insightsUrl}?before_id=${history.next_before_id}&limit=${historyPageSize}`, options)
-      if (options.signal.aborted) return
-      setHistory(current => ({ ...older, items: [...current.items, ...older.items] }))
     })
   }
 
@@ -111,10 +89,7 @@ export default function InventoryInsightsPage() {
   }
 
   if (!owner) return <Navigate to={token && user?.role === 'EMPLOYEE' ? '/checkout' : '/'} replace />
-  const selected = history.items.find(report => report.id === selectedId)
-  const items = selected
-    ? (selected.priority_items ?? (selected.priority_item ? [selected.priority_item] : []))
-    : (stock?.priority_items ?? [])
+  const items = stock?.priority_items ?? []
   const busy = loading || Boolean(pending)
   return (
     <div className="dashboard-shell">
@@ -136,7 +111,7 @@ export default function InventoryInsightsPage() {
             </button>
           </section>
 
-          {loading && <p className="insights-feedback" role="status">Loading inventory and saved insights…</p>}
+          {loading && <p className="insights-feedback" role="status">Loading inventory…</p>}
           {loadError && <div className="error-banner insights-feedback" role="alert">
             <p>{loadError}</p>
             <button className="button-light" disabled={busy} onClick={() => setReload(value => value + 1)}>Try again</button>
@@ -169,35 +144,15 @@ export default function InventoryInsightsPage() {
             </section>
           )}
 
-          <div className="insights-grid">
+          {stock && (
             <section className="panel insights-report" aria-labelledby="insight-report-heading">
-              <h2 id="insight-report-heading" className="section-title"><span className="icon-tile"><Icon name="list" /></span> Priority Items ({numberFormat.format(items.length)})</h2>
-              {(selected || stock) && <InventoryInsight items={items} insight={selected} />}
+              <h2 id="insight-report-heading" className="section-title">
+                <span className="icon-tile"><Icon name="list" /></span>
+                Priority Items ({numberFormat.format(items.length)})
+              </h2>
+              <InventoryInsight items={items} insight={stock.summary ? stock : null} />
             </section>
-
-            <section className="panel insights-history" aria-labelledby="insights-history-heading">
-              <h2 id="insights-history-heading" className="section-title"><span className="icon-tile"><Icon name="clock" /></span> Insight History</h2>
-              {history.items.length > 0 ? (
-                <ul className="insights-history-list">
-                  {history.items.map(report => (
-                    <li key={report.id}>
-                      <button type="button" className="insights-history-item" aria-pressed={report.id === selectedId}
-                        onClick={() => setSelectedId(current => current === report.id ? null : report.id)}>
-                        <Icon name="calendar" />
-                        <time dateTime={report.created_at}>{dateFormat.format(new Date(report.created_at))}</time>
-                        <span aria-hidden="true">›</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : !loading && !loadError && <p className="insights-empty">Generated insights will appear here.</p>}
-              {history.next_before_id && (
-                <button className="button-light insights-more" onClick={loadEarlier} disabled={busy}>
-                  {pending === 'history' ? 'Loading…' : 'Load earlier insights'}
-                </button>
-              )}
-            </section>
-          </div>
+          )}
         </div>
       </main>
     </div>
