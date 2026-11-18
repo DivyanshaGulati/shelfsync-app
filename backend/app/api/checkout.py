@@ -18,7 +18,7 @@ from app.db.dependencies import get_db
 from app.db.models import InventoryItem, Transaction, User
 from app.core.forecast import calculate_forecast
 from app.core.replenishment import ensure_replenishment_request
-from app.core.mock_purchasing import enabled as mock_purchasing_enabled, process_after_checkout
+from app.core.mock_purchasing import enabled as mock_purchasing_enabled, process_in_background
 
 router = APIRouter(prefix="/api", tags=["Checkout & Transactions"])
 
@@ -158,7 +158,7 @@ def checkout(
         raise HTTPException(status_code=409, detail="Checkout could not be completed") from exc
 
     if order_to_process is not None and background_tasks is not None and mock_purchasing_enabled():
-        background_tasks.add_task(process_after_checkout, db.get_bind(), order_to_process)
+        background_tasks.add_task(process_in_background, db.get_bind(), order_to_process)
     db.refresh(tx)
     return checkout_result(db, tx, replayed=False)
 

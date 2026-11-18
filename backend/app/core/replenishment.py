@@ -41,6 +41,16 @@ def ensure_replenishment_request(
         # ROP may be zero at zero stock; never create a zero-quantity PO.
         return None
 
+    return create_purchase_request(db, item, quantity, created_by=created_by)
+
+
+def create_purchase_request(
+    db: Session, item: InventoryItem, quantity: int, *, created_by: int | None
+) -> PurchaseOrder:
+    """Create a request for a positive quantity when the item has no open request.
+
+    The caller must lock the existing item or insert the new item in this transaction.
+    """
     order = PurchaseOrder(
         inventory_item_id=item.id,
         created_by=created_by,

@@ -5,7 +5,7 @@ Stock mutations are handled by the transactional checkout and receiving services
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -13,12 +13,15 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import require_roles
 from app.core.claude_agent import AgentInvalidResponse, AgentUnavailable, InventoryInsight, explain_inventory
+from app.core.forecast import ACTIVE_ON_ORDER_STATUSES, calculate_forecast
+from app.core.mock_purchasing import enabled as mock_purchasing_enabled, process_in_background
+from app.core.replenishment import create_purchase_request
+from app.core.stock_status import build_stock_snapshot
 from app.db.dependencies import get_db
 from app.db.models import InventoryItem, OrderItem, PurchaseOrder, User
-from app.core.forecast import ACTIVE_ON_ORDER_STATUSES, calculate_forecast
-from app.core.stock_status import build_stock_snapshot
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
+InitialOrderQuantity = Annotated[int, Field(strict=True, gt=0, le=2_147_483_647)]
 
 
 class ItemFields(BaseModel):
@@ -45,6 +48,7 @@ class ItemFields(BaseModel):
 
 class ItemCreate(ItemFields):
     model_config = ConfigDict(extra="forbid")
+    initial_order_quantity: InitialOrderQuantity | None = None
 
 
 class ItemUpdate(BaseModel):
@@ -55,6 +59,7 @@ class ItemUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=5000)
     unit: str | None = Field(default=None, min_length=1, max_length=40)
     unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    initial_order_quantity: InitialOrderQuantity | None = None
 
     @field_validator("name", "sku", "category", "unit")
     @classmethod
@@ -99,22 +104,32 @@ class ItemList(BaseModel):
     offset: int
 
 
-def item_or_404(db: Session, item_id: int) -> InventoryItem:
-    item = db.get(InventoryItem, item_id)
+def item_or_404(db: Session, item_id: int, *, lock: bool = False) -> InventoryItem:
+    item = db.get(InventoryItem, item_id, with_for_update=lock)
     if item is None:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     return item
 
 
-def commit_item(db: Session, item: InventoryItem) -> InventoryItem:
+def save_item(
+    db: Session, item: InventoryItem, *, initial_order_quantity: int | None,
+    owner_id: int, background_tasks: BackgroundTasks,
+) -> InventoryItem:
     try:
         db.add(item)
-        db.commit()
-        db.refresh(item)
+        db.flush()
     except IntegrityError as exc:
         db.rollback()
         # Database uniqueness constraint remains the final authority under concurrency.
         raise HTTPException(status_code=409, detail="An inventory item with this SKU already exists") from exc
+    order_id = None
+    if initial_order_quantity is not None:
+        order = create_purchase_request(db, item, initial_order_quantity, created_by=owner_id)
+        order_id = order.id
+    db.commit()
+    if order_id is not None and mock_purchasing_enabled():
+        background_tasks.add_task(process_in_background, db.get_bind(), order_id)
+    db.refresh(item)
     return item
 
 
@@ -180,11 +195,14 @@ def get_item(
 def create_item(
     data: ItemCreate,
     db: Annotated[Session, Depends(get_db)],
-    _owner: Annotated[User, Depends(require_roles("OWNER"))],
+    owner: Annotated[User, Depends(require_roles("OWNER"))],
+    background_tasks: BackgroundTasks,
 ):
-    # All inventory quantities and forecasting fields use safe DB defaults.
-    # No stock additions through this endpoint.
-    return commit_item(db, InventoryItem(**data.model_dump()))
+    item = InventoryItem(**data.model_dump(exclude={"initial_order_quantity"}))
+    return save_item(
+        db, item, initial_order_quantity=data.initial_order_quantity,
+        owner_id=owner.id, background_tasks=background_tasks,
+    )
 
 
 @router.patch("/{item_id}", response_model=ItemResponse)
@@ -192,15 +210,27 @@ def update_item(
     item_id: int,
     data: ItemUpdate,
     db: Annotated[Session, Depends(get_db)],
-    _owner: Annotated[User, Depends(require_roles("OWNER"))],
+    owner: Annotated[User, Depends(require_roles("OWNER"))],
+    background_tasks: BackgroundTasks,
 ):
-    item = item_or_404(db, item_id)
-    updates = data.model_dump(exclude_unset=True)
+    quantity = data.initial_order_quantity
+    item = item_or_404(db, item_id, lock=quantity is not None)
+    if quantity is not None:
+        existing_order = db.scalar(
+            select(PurchaseOrder.id).where(PurchaseOrder.inventory_item_id == item_id).limit(1)
+        )
+        if item.on_hand != 0 or existing_order is not None:
+            raise HTTPException(
+                status_code=409, detail="A first order requires zero on-hand stock and no previous purchase orders",
+            )
+    updates = data.model_dump(exclude_unset=True, exclude={"initial_order_quantity"})
     if any(value is None for key, value in updates.items() if key != "description"):
         raise HTTPException(status_code=422, detail="Required item fields cannot be null")
     for key, value in updates.items():
         setattr(item, key, value)
-    return commit_item(db, item)
+    return save_item(
+        db, item, initial_order_quantity=quantity, owner_id=owner.id, background_tasks=background_tasks,
+    )
 
 
 @router.get("/{item_id}/forecast", tags=["Inventory Forecast"])

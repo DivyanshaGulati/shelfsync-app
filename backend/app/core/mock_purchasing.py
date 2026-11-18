@@ -81,13 +81,13 @@ def process_order(db: Session, order_id: int) -> dict:
     return {"order_id": order.id, "status": order.status}
 
 
-def process_after_checkout(bind, order_id: int) -> None:
+def process_in_background(bind, order_id: int) -> None:
     with Session(bind, autoflush=False, expire_on_commit=False) as db:
         try:
             process_order(db, order_id)
         except Exception as exc:
             db.rollback()
-            # Checkout was committed independently. The Owner can retry the order.
+            # The request is already committed. The Owner can retry processing it.
             logger.warning("Mock purchase %s needs a retry (%s)", order_id, type(exc).__name__)
 
 

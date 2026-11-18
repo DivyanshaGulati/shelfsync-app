@@ -134,7 +134,7 @@ export default function MockPurchasingPage({ approvalLimit }) {
         {error && <p className="error-banner" role="alert">{error}</p>}
         {notice && <p className="success-banner" role="status">{notice}</p>}
         {!data && !error && <p>Loading orders…</p>}
-        {data?.orders.length === 0 && <p className="panel empty">Purchase requests appear when a checkout triggers replenishment.</p>}
+        {data?.orders.length === 0 && <p className="panel empty">Purchase requests appear when you request a first order or a checkout triggers replenishment.</p>}
         {data?.orders.map(order => <section className="panel purchase-detail" key={order.id}>
           <div className="heading-row">
             <div>
