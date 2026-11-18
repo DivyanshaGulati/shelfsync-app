@@ -49,4 +49,4 @@ print("AI smoke test passed.")
 PY
 ```
 
-To exercise the real tool exchange, sign in as Owner, use Busy Week if a purchase request is needed, prepare quotations, simulate vendor replies, close the collection, and choose **Get AI recommendation** on a request with eligible quotes. The UI should show an advisory pick. The automated tests use mocked Claude and Groq HTTP responses and cover Groq tool calls, failover after a Claude tool round, and backend purchasing safeguards.
+To exercise the real tool exchange, sign in as Owner, record a regular checkout if a purchase request is needed, prepare quotations, simulate vendor replies, close the collection, and choose **Get AI recommendation** on a request with eligible quotes. The UI should show an advisory pick. The automated tests use mocked Claude and Groq HTTP responses and cover Groq tool calls, failover after a Claude tool round, and backend purchasing safeguards.

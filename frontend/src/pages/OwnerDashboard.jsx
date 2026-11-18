@@ -43,10 +43,6 @@ export default function OwnerDashboard() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [refresh, setRefresh] = useState(0)
-  const [busy, setBusy] = useState(false)
-  const [demoResult, setDemoResult] = useState(null)
-  const [demoRunId, setDemoRunId] = useState(() => `week-${Date.now()}`)
-  const [demoError, setDemoError] = useState('')
   const [lastUpdated, setLastUpdated] = useState(null)
   const [insight, setInsight] = useState(null)
   const [insightLoading, setInsightLoading] = useState(false)
@@ -84,16 +80,6 @@ export default function OwnerDashboard() {
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [token, user?.role, refresh, logout])
-  const simulateWeek = async () => {
-    if (!window.confirm('Record three real demo checkouts (8 Gypsum Screws, 4 Copper Wire, 2 Teflon Tape)? Stock will be deducted and may trigger mock purchasing when that workflow is enabled.')) return
-    setBusy(true); setDemoError(''); setDemoResult(null)
-    try {
-      const result = await requestJSON('/api/demo/simulate-busy-week', { token, method: 'POST', body: { run_id: demoRunId } })
-      setDemoResult(result); setRefresh(x => x + 1)
-      // Only advance the run ID after confirmed completion; failures retain it for safe retry.
-      setDemoRunId(`week-${Date.now()}`)
-    } catch (e) { setDemoError(e.message) } finally { setBusy(false) }
-  }
   const generateInsight = async () => {
     setInsightLoading(true)
     setInsightError('')
@@ -133,7 +119,7 @@ export default function OwnerDashboard() {
           <div className="panel-grid"><section className="panel"><div className="panel-heading"><div><h2>Needs attention</h2></div><span className="pill">{metrics.lowStock.length} items</span></div><div className="table-scroll"><table><thead><tr><th>Item</th><th>On hand</th><th>On order</th><th>Reorder point</th></tr></thead><tbody>{metrics.lowStock.slice(0,8).map(item=><tr key={item.id}><td><strong>{item.name}</strong><small>{item.sku}</small></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{Number(item.reorder_point).toFixed(1)}</td></tr>)}{metrics.lowStock.length===0&&<tr><td colSpan="4" className="empty">No low-stock items</td></tr>}</tbody></table></div></section>
           <section className="panel">
             <div className="panel-heading"><div><h2>AI inventory insights</h2></div></div>
-            <button className="button-light" disabled={insightLoading || busy} onClick={generateInsight}>
+            <button className="button-light" disabled={insightLoading} onClick={generateInsight}>
               {insightLoading ? 'Generating inventory insight…' : 'Generate inventory insight'}
             </button>
             {insightError && <p className="error" role="alert">{insightError}</p>}
@@ -141,7 +127,7 @@ export default function OwnerDashboard() {
               <p>{insight.summary}</p>
               {insight.priority_sku && <p>Priority SKU <strong>{insight.priority_sku}</strong></p>}
             </div>}
-            <div className="simulation-note"><strong>Simulate Busy Week</strong><p>Records demo checkouts and deducts stock. May trigger simulated purchase orders.</p><button className="button-primary" disabled={busy} onClick={simulateWeek}>{busy ? 'Processing checkouts…' : 'Simulate Busy Week'}</button>{demoError && <p className="error" role="alert">{demoError}</p>}{demoResult && <div role="status"><strong>{demoResult.checkouts.filter(x=>!x.replayed).length} checkouts recorded</strong><p>{demoResult.open_purchase_requests.length} open purchase requests across the demo items.</p><Link to="/purchasing">Review quotations and approvals</Link></div>}</div></section></div>
+          </section></div>
         </> : <div className="panel loading-panel">{loading ? 'Loading dashboard…' : 'No data available yet.'}</div>}
       </div>}
     </main>

@@ -52,7 +52,7 @@ def configuration_findings(config):
     if not config.enable_quote_simulation:
         issues.append("ENABLE_QUOTE_SIMULATION must be true for demo replies")
     if not config.enable_busy_week_simulation:
-        issues.append("ENABLE_BUSY_WEEK_SIMULATION must be true for the dashboard demo action")
+        issues.append("ENABLE_BUSY_WEEK_SIMULATION must be true for the Busy Week demo endpoint")
     if config.ai_provider.strip().lower() not in ("groq", "claude"):
         issues.append("Use AI_PROVIDER=groq or claude for the cloud demo")
     try:
