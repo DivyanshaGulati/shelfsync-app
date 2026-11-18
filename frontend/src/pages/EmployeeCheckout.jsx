@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api.js'
+import Sidebar from '../components/Sidebar.jsx'
 
 // The key belongs to a single immutable checkout attempt, not a button click.
 // Keep it on transport failures so retries cannot deduct stock twice.
@@ -76,7 +77,7 @@ export default function EmployeeCheckout() {
     } finally { inFlight.current = false; setSaving(false) }
   }
   return <div className="dashboard-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div>{isOwner && <><Link className="nav-item" to="/">▦ Overview</Link><Link className="nav-item" to="/inventory">▤ Inventory</Link><Link className="nav-item" to="/vendors">▧ Vendors</Link><Link className="nav-item" to="/purchasing">▣ Purchasing</Link></>}<div className="nav-item selected">▣ {isOwner ? 'Checkout' : checkoutTitle}</div></aside>
+    <Sidebar employee={!isOwner} />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{user?.name || user?.email} · {user?.role}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
       <div className="content"><div className="heading-row"><div><h1>{checkoutTitle}</h1></div><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
         {error && <p role="alert" className="error-banner">{error}</p>}

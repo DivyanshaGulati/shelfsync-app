@@ -5,6 +5,7 @@ import { getAllPages, requestJSON } from '../lib/api.js'
 import { COMPLETED_PURCHASE_STATUSES } from '../lib/purchaseStatus.js'
 import MockPurchasingPage from './MockPurchasingPage.jsx'
 import OrderTracking, { trackingLabel } from './OrderTracking.jsx'
+import Sidebar from '../components/Sidebar.jsx'
 
 const tabs = [
   ['Waiting for Quotes', ['WAITING_FOR_QUOTES']],
@@ -124,7 +125,7 @@ function DetailedPurchasingPage() {
   }, [current, busy, token, logout])
   if (!canView) return <Navigate to="/" replace />
   return <div className="dashboard-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div><Link className="nav-item" to="/">▦ Overview</Link><Link className="nav-item" to="/inventory">▤ Inventory</Link><Link className="nav-item" to="/vendors">▧ Vendors</Link><div className="nav-item selected">▣ Purchasing</div><Link className="nav-item" to="/checkout">▣ Checkout</Link></aside>
+    <Sidebar />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Purchasing</strong></span><div className="topbar-actions"><span>{user?.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
       <div className="content"><div className="heading-row"><div><h1>Purchase & Approval Center</h1></div><button className="button-light" disabled={loading || !!busy} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button></div>
       {error && <p role="alert" className="error-banner">{error}</p>}{notice && <p role="status" className="success-banner">{notice}</p>}

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { getAllPages, requestJSON } from '../lib/api.js'
 import OrderTracking, { trackingLabel } from './OrderTracking.jsx'
+import Sidebar from '../components/Sidebar.jsx'
 
 const labels = {
   WAITING_FOR_QUOTES: 'Waiting for AI',
@@ -109,15 +109,7 @@ export default function MockPurchasingPage({ approvalLimit }) {
 
   const disabled = busy != null
   return <div className="dashboard-shell">
-    <aside className="sidebar">
-      <div className="brand"><span className="brand-icon">▥</span> ShelfSync</div>
-      <div className="nav-heading">WORKSPACE</div>
-      <Link className="nav-item" to="/">▦ Overview</Link>
-      <Link className="nav-item" to="/inventory">▤ Inventory</Link>
-      <Link className="nav-item" to="/vendors">▧ Vendors</Link>
-      <div className="nav-item selected">▣ Purchasing</div>
-      <Link className="nav-item" to="/checkout">▣ Checkout</Link>
-    </aside>
+    <Sidebar />
     <main className="dashboard-main">
       <header className="topbar">
         <span>Operations / <strong>Purchasing</strong></span>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { requestJSON } from '../lib/api.js'
+import Sidebar from '../components/Sidebar.jsx'
 
 const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
 
@@ -38,15 +39,7 @@ export default function VendorsPage() {
   }
 
   return <div className="dashboard-shell">
-    <aside className="sidebar">
-      <div className="brand"><span className="brand-icon">▥</span> ShelfSync</div>
-      <div className="nav-heading">WORKSPACE</div>
-      <Link className="nav-item" to="/">▦ Overview</Link>
-      <Link className="nav-item" to="/inventory">▤ Inventory</Link>
-      <div className="nav-item selected" aria-current="page">▧ Vendors</div>
-      <Link className="nav-item" to="/purchasing">▣ Purchasing</Link>
-      <Link className="nav-item" to="/checkout">▣ Checkout</Link>
-    </aside>
+    <Sidebar />
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Vendors</strong></span>
         <div className="topbar-actions"><span>{user.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div>

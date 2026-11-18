@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api'
 import { COMPLETED_PURCHASE_STATUSES, inventoryRows } from '../lib/purchaseStatus.js'
 import { useStockStatusRefresh } from '../lib/useStockStatusRefresh.js'
+import Sidebar from '../components/Sidebar.jsx'
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 const dayKey = (value) => new Date(value).toISOString().slice(0, 10)
@@ -97,15 +98,7 @@ export default function OwnerDashboard() {
   const metrics = useMemo(() => data ? dashboardMetrics(data.inventory, data.orders, data.transactions) : null, [data])
   if (token && user?.role === 'EMPLOYEE') return <Navigate to="/checkout" replace />
   return <div className="dashboard-shell">
-    <aside className="sidebar">
-      <div className="brand"><span className="brand-icon">▥</span> ShelfSync</div>
-      <div className="nav-heading">WORKSPACE</div>
-      <div className="nav-item selected">▦ <span>Overview</span></div>
-      <div className="nav-item muted"><Link to="/inventory">▤ <span>Inventory</span></Link></div>
-      <Link className="nav-item" to="/vendors">▧ <span>Vendors</span></Link>
-      <Link className="nav-item" to="/purchasing">▣ <span>Purchasing</span></Link>
-      <Link className="nav-item" to="/checkout">▣ Checkout</Link><div className="sidebar-bottom"><Link to="/contact">Contact</Link></div>
-    </aside>
+    <Sidebar showContact />
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Overview</strong></span><div className="topbar-actions">{user && <><span>{user.name} · OWNER</span><button onClick={logout} className="button-light">Sign out</button></>}</div></header>
       {!token ? <section className="login-panel"><h1>Welcome to ShelfSync</h1><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>{error && <p className="error" role="alert">{error}</p>}</section> : <div className="content">

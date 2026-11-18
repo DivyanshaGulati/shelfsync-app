@@ -4,6 +4,7 @@ import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api.js'
 import { inventoryRows } from '../lib/purchaseStatus.js'
 import { useStockStatusRefresh } from '../lib/useStockStatusRefresh.js'
+import Sidebar from '../components/Sidebar.jsx'
 
 const categories = ['Fasteners', 'Plumbing', 'Electrical', 'Tools & Adhesives', 'Hardware Fittings']
 const emptyForm = { name: '', sku: '', category: 'Fasteners', description: '', unit: 'pcs', unit_cost: '0.00' }
@@ -68,7 +69,7 @@ export default function InventoryPage() {
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
   return <div className="dashboard-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div><Link className="nav-item" to="/">▦ Overview</Link><div className="nav-item selected">▤ Inventory</div><Link className="nav-item" to="/vendors">▧ Vendors</Link><Link className="nav-item" to="/purchasing">▣ Purchasing</Link><Link className="nav-item" to="/checkout">▣ Checkout</Link></aside>
+    <Sidebar />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Inventory</strong></span><div className="topbar-actions"><span>{user?.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
     <div className="content"><div className="heading-row"><div><h1>Inventory Management</h1></div><div className="inventory-actions"><button className="button-light" disabled={loading} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button><button className="button-primary" onClick={() => openForm(null)}>+ Add Item</button></div></div>
     {notice && <p className="success-banner" role="status">{notice}</p>}{error && <p className="error-banner" role="alert">{error}</p>}
