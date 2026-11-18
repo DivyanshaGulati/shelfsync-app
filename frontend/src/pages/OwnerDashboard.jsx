@@ -84,7 +84,7 @@ export default function OwnerDashboard() {
   const metrics = useMemo(() => data ? dashboardMetrics(data.inventory, data.orders, data.transactions) : null, [data])
   if (token && user?.role === 'EMPLOYEE') return <Navigate to="/checkout" replace />
   return <div className="dashboard-shell">
-    <Sidebar showContact />
+    {token && <Sidebar showContact />}
     <main className="dashboard-main">
       {token && (
         <header className="topbar">
