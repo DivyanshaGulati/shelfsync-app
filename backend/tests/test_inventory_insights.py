@@ -7,7 +7,8 @@ from sqlalchemy import select
 
 from app.core import claude_agent
 from app.core.config import settings
-from app.db.models import InventoryItem, OrderItem, PurchaseOrder
+from app.core.security import create_access_token
+from app.db.models import InventoryItem, OrderItem, PurchaseOrder, User
 from test_groq_provider import fake_groq
 from test_quotation_collection import create_request, setup
 
@@ -44,7 +45,10 @@ def test_owner_dashboard_insight_uses_groq_with_claude_blank(setup, monkeypatch)
     assert not requests
     insight = client.post("/api/inventory/ai-insights", headers=owner)
     assert insight.status_code == 200, insight.text
-    assert insight.json() == {
+    saved = insight.json()
+    assert saved.pop("id") > 0
+    assert datetime.fromisoformat(saved.pop("created_at")).tzinfo is not None
+    assert saved == {
         "summary": "Review the item below its reorder point.",
         "priority_sku": sku,
         "inventory_items": 1,
@@ -76,6 +80,42 @@ def test_dashboard_insight_rejects_unverified_priority_and_handles_missing_key(s
     invalid = client.post("/api/inventory/ai-insights", headers=owner)
     assert invalid.status_code == 409
     assert invalid.json()["detail"]["ai_status"] == "INVALID_INSIGHT"
+    assert client.get("/api/inventory/ai-insights", headers=owner).json()["items"] == []
+
+
+def test_saved_history_is_owner_scoped_paginated_and_keeps_original_stock(setup, monkeypatch):
+    client, factory, owner, employee = setup
+    url = "/api/inventory/ai-insights"
+    monkeypatch.setattr(claude_agent, "call_provider_messages", lambda _: {
+        "stop_reason": "end_turn",
+        "content": [{"type": "text", "text": '{"summary":"Review the stock levels.","priority_sku":null}'}],
+    })
+    with factory.begin() as db:
+        db.get(InventoryItem, 1).reorder_point = 6
+        second_owner = User(name="Second Owner", email="second@quotes.local", password_hash="unused", role="OWNER")
+        db.add(second_owner)
+        db.flush()
+        other_owner = {"Authorization": f"Bearer {create_access_token(second_owner.id)}"}
+
+    assert client.get(url, headers=employee).status_code == 403
+    assert client.get(f"{url}/snapshot", headers=employee).status_code == 403
+    assert client.get(f"{url}/snapshot", headers=owner).json() == {"inventory_items": 1, "low_stock_items": 1}
+    first = client.post(url, headers=owner).json()
+    assert first["priority_item"]["on_hand"] == 4
+    with factory.begin() as db:
+        db.get(InventoryItem, 1).on_hand = 10
+
+    assert client.get(f"{url}/snapshot", headers=owner).json() == {"inventory_items": 1, "low_stock_items": 0}
+    second = client.post(url, headers=owner).json()
+    assert second["priority_item"] is None
+    assert second["id"] > first["id"]
+    assert client.post(url, headers=other_owner).status_code == 200
+    latest = client.get(f"{url}?limit=1", headers=owner).json()
+    assert latest == {"items": [second], "next_before_id": second["id"]}
+    assert client.get(f"{url}?before_id={second['id']}", headers=owner).json() == {
+        "items": [first], "next_before_id": None,
+    }
+    assert len(client.get(url, headers=other_owner).json()["items"]) == 1
 
 
 # --- Low Stock must not be hidden by On Order quantity -----------------------------------

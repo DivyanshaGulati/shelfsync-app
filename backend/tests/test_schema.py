@@ -42,7 +42,7 @@ def db(tmp_path):
 
 def test_model_relationships_are_valid():
     configure_mappers()
-    assert len(Base.metadata.tables) == 13  # Ten core tables + RFQ, final PO dispatch and stock receipt audits
+    assert len(Base.metadata.tables) == 14
 
 
 def test_migration_matches_models(db):

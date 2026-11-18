@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric,
+    Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, Numeric,
     String, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -36,6 +36,16 @@ class User(Base):
     transactions: Mapped[list[Transaction]] = relationship(back_populates="user")
     created_orders: Mapped[list[PurchaseOrder]] = relationship(back_populates="creator")
     approval_logs: Mapped[list[ApprovalLog]] = relationship(back_populates="owner")
+
+
+class InventoryInsightReport(Base):
+    __tablename__ = "inventory_insight_reports"
+    __table_args__ = (Index("ix_inventory_insight_reports_owner_id_id", "owner_id", "id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    created_at: Mapped[datetime] = timestamp()
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
 
 
 class InventoryItem(Base):

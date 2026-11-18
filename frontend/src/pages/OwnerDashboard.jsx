@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api'
 import { COMPLETED_PURCHASE_STATUSES, inventoryRows } from '../lib/purchaseStatus.js'
 import { useStockStatusRefresh } from '../lib/useStockStatusRefresh.js'
 import Sidebar from '../components/Sidebar.jsx'
-import InventoryInsight from '../components/InventoryInsight.jsx'
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 const dayKey = (value) => new Date(value).toISOString().slice(0, 10)
@@ -46,11 +45,8 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const [lastUpdated, setLastUpdated] = useState(null)
-  const [insight, setInsight] = useState(null)
-  const [insightLoading, setInsightLoading] = useState(false)
-  const [insightError, setInsightError] = useState('')
   const logout = useCallback(() => {
-    clearSession(); setData(null); setError(''); setInsight(null); setInsightError('')
+    clearSession(); setData(null); setError('')
   }, [clearSession])
   const updateStock = useCallback((inventory, orders) => {
     setData(current => current && { ...current, inventory, orders })
@@ -82,20 +78,6 @@ export default function OwnerDashboard() {
     }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [token, user?.role, refresh, logout])
-  const generateInsight = async () => {
-    setInsightLoading(true)
-    setInsightError('')
-    setInsight(null)
-    try {
-      const result = await requestJSON('/api/inventory/ai-insights', { token, method: 'POST' })
-      setInsight(result)
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) logout()
-      else setInsightError(err.message)
-    } finally {
-      setInsightLoading(false)
-    }
-  }
   const metrics = useMemo(() => data ? dashboardMetrics(data.inventory, data.orders, data.transactions) : null, [data])
   if (token && user?.role === 'EMPLOYEE') return <Navigate to="/checkout" replace />
   return <div className="dashboard-shell">
@@ -113,11 +95,7 @@ export default function OwnerDashboard() {
           <div className="panel-grid"><section className="panel"><div className="panel-heading"><div><h2>Needs attention</h2></div><span className="pill">{metrics.lowStock.length} items</span></div><div className="table-scroll"><table><thead><tr><th>Item</th><th>On hand</th><th>On order</th><th>Reorder point</th></tr></thead><tbody>{metrics.lowStock.slice(0,8).map(item=><tr key={item.id}><td><strong>{item.name}</strong><small>{item.sku}</small></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{Number(item.reorder_point).toFixed(1)}</td></tr>)}{metrics.lowStock.length===0&&<tr><td colSpan="4" className="empty">No low-stock items</td></tr>}</tbody></table></div></section>
           <section className="panel inventory-insight-panel">
             <div className="panel-heading"><div><h2>AI inventory insights</h2></div></div>
-            <button className="button-light" disabled={insightLoading} onClick={generateInsight}>
-              {insightLoading ? 'Generating inventory insight…' : 'Generate inventory insight'}
-            </button>
-            {insightError && <p className="error" role="alert">{insightError}</p>}
-            {insight && <InventoryInsight insight={insight} />}
+            <Link className="button-light insights-shortcut" to="/insights">Open AI insights</Link>
           </section></div>
         </> : <div className="panel loading-panel">{loading ? 'Loading dashboard…' : 'No data available yet.'}</div>}
       </div>}

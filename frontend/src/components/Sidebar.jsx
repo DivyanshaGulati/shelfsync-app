@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const ownerLinks = [
   { to: '/', icon: '▦', label: 'Overview' },
+  { to: '/insights', icon: '✦', label: 'AI Inventory Insights' },
   { to: '/inventory', icon: '▤', label: 'Inventory' },
   { to: '/vendors', icon: '▧', label: 'Vendors' },
   { to: '/purchasing', icon: '▣', label: 'Purchasing' },

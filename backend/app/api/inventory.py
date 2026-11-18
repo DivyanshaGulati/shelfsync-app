@@ -2,6 +2,7 @@
 
 Stock mutations are handled by the transactional checkout and receiving services.
 """
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated
 
@@ -18,7 +19,7 @@ from app.core.mock_purchasing import enabled as mock_purchasing_enabled, process
 from app.core.replenishment import create_purchase_request
 from app.core.stock_status import build_stock_snapshot
 from app.db.dependencies import get_db
-from app.db.models import InventoryItem, OrderItem, PurchaseOrder, User
+from app.db.models import InventoryInsightReport, InventoryItem, OrderItem, PurchaseOrder, User
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
 InitialOrderQuantity = Annotated[int, Field(strict=True, gt=0, le=2_147_483_647)]
@@ -170,11 +171,22 @@ class DashboardInventoryInsight(InventoryInsight):
     priority_item: InsightPriorityItem | None
 
 
-@router.post("/ai-insights", response_model=DashboardInventoryInsight)
-def inventory_ai_insights(
-    db: Annotated[Session, Depends(get_db)],
-    _owner: Annotated[User, Depends(require_roles("OWNER"))],
-):
+class SavedInventoryInsight(DashboardInventoryInsight):
+    id: int
+    created_at: datetime
+
+
+class InsightHistory(BaseModel):
+    items: list[SavedInventoryInsight]
+    next_before_id: int | None
+
+
+class InsightStockOverview(BaseModel):
+    inventory_items: int
+    low_stock_items: int
+
+
+def _stock_snapshot(db: Session) -> dict:
     # Low Stock is decided by app.core.stock_status (available stock <= ROP), the same
     # rule the Inventory and Overview pages show. On Order is incoming stock: it is
     # reported alongside each item but never added to what is physically available.
@@ -189,7 +201,50 @@ def inventory_ai_insights(
         .join(PurchaseOrder, PurchaseOrder.id == OrderItem.purchase_order_id)
         .where(PurchaseOrder.status.in_(ACTIVE_ON_ORDER_STATUSES), OrderItem.is_open.is_(True))
     ).all()
-    snapshot = build_stock_snapshot(items, order_lines)
+    return build_stock_snapshot(items, order_lines)
+
+
+def _saved_insight(report: InventoryInsightReport) -> SavedInventoryInsight:
+    # SQLite timestamps have no timezone.
+    created_at = report.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return SavedInventoryInsight(**report.payload, id=report.id, created_at=created_at)
+
+
+@router.get("/ai-insights/snapshot", response_model=InsightStockOverview)
+def inventory_insight_stock_overview(
+    db: Annotated[Session, Depends(get_db)],
+    _owner: Annotated[User, Depends(require_roles("OWNER"))],
+):
+    return _stock_snapshot(db)
+
+
+@router.get("/ai-insights", response_model=InsightHistory)
+def inventory_insight_history(
+    db: Annotated[Session, Depends(get_db)],
+    owner: Annotated[User, Depends(require_roles("OWNER"))],
+    before_id: Annotated[int | None, Query(gt=0)] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 12,
+):
+    query = select(InventoryInsightReport).where(InventoryInsightReport.owner_id == owner.id)
+    if before_id is not None:
+        query = query.where(InventoryInsightReport.id < before_id)
+    reports = db.scalars(query.order_by(InventoryInsightReport.id.desc()).limit(limit + 1)).all()
+    return InsightHistory(
+        items=[_saved_insight(report) for report in reports[:limit]],
+        next_before_id=reports[limit - 1].id if len(reports) > limit else None,
+    )
+
+
+@router.post("/ai-insights", response_model=SavedInventoryInsight)
+def inventory_ai_insights(
+    db: Annotated[Session, Depends(get_db)],
+    owner: Annotated[User, Depends(require_roles("OWNER"))],
+):
+    owner_id = owner.id
+    snapshot = _stock_snapshot(db)
+    captured_at = datetime.now(timezone.utc)
     db.rollback()  # Release the read transaction before the external call.
     try:
         insight = explain_inventory(snapshot)
@@ -203,13 +258,21 @@ def inventory_ai_insights(
         (item for item in candidates if item["sku"] == insight.priority_sku),
         candidates[0] if candidates else None,
     )
-    return DashboardInventoryInsight(
+    result = DashboardInventoryInsight(
         summary=insight.summary,
         priority_sku=priority["sku"] if priority is not None else None,
         inventory_items=snapshot["inventory_items"],
         low_stock_items=snapshot["low_stock_items"],
         priority_item=InsightPriorityItem.model_validate(priority) if priority is not None else None,
     )
+    report = InventoryInsightReport(
+        owner_id=owner_id, created_at=captured_at, payload=result.model_dump(mode="json")
+    )
+    db.add(report)
+    db.flush()
+    response = _saved_insight(report)
+    db.commit()
+    return response
 
 
 @router.get("/{item_id}", response_model=ItemResponse)
