@@ -395,7 +395,7 @@ td.empty { padding: 24px 12px; }
 .sidebar-nav { min-height: min-content; }
 .nav-item .ui-icon { width: 19px; height: 19px; }
 .sidebar-contact { border-radius: 0; }
-.dashboard-main:has(> .login-stage) { display: grid; grid-template-rows: auto 1fr; }
+.dashboard-main:has(> .login-stage) { display: grid; }
 .login-stage::after { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 75% 112%, #a8cafb8c, transparent 38%); }
 .login-panel { background: linear-gradient(145deg, white 55%, #edf5ff); }
 .login-panel .button-primary { justify-content: center; width: 100%; }

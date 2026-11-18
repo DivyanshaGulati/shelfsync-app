@@ -85,7 +85,17 @@ export default function OwnerDashboard() {
   return <div className="dashboard-shell">
     <Sidebar showContact />
     <main className="dashboard-main">
-      <header className="topbar"><span>Operations / <strong>Overview</strong></span><div className="topbar-actions">{user && <><span>{user.name} · OWNER</span><button onClick={logout} className="button-light">Sign out</button></>}</div></header>
+      {token && (
+        <header className="topbar">
+          <span>Operations / <strong>Overview</strong></span>
+          {user && (
+            <div className="topbar-actions">
+              <span>{user.name} · OWNER</span>
+              <button onClick={logout} className="button-light">Sign out</button>
+            </div>
+          )}
+        </header>
+      )}
       {!token ? <div className="login-stage">
         <section className="login-intro"><h1>Welcome to <em>ShelfSync</em></h1>
           <p>A simple, intelligent way to manage your inventory, purchasing and daily operations.</p>
