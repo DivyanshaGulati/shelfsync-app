@@ -24,7 +24,7 @@ export default function Sidebar({ employee = false, showContact = false }) {
         ))}
         {showContact && (
           <NavLink to="/contact" end className="nav-item sidebar-contact">
-            <span className="nav-icon" aria-hidden="true">✉</span>
+            <span className="nav-icon" aria-hidden="true">✉︎</span>
             <span>Contact</span>
           </NavLink>
         )}
