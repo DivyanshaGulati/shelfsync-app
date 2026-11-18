@@ -110,7 +110,6 @@ def _seed_items(session: Session) -> dict[str, InventoryItem]:
                 avg_daily_demand=Decimal("0"), demand_std_dev=Decimal("0"),
                 avg_lead_time_days=Decimal("0"), lead_time_std_dev=Decimal("0"),
                 safety_stock=Decimal("0"), reorder_point=Decimal("0"), low_confidence=True,
-                description="Illustrative demo item; unit cost is not a current vendor quote.",
             )
             session.add(item)
             session.flush()

@@ -36,6 +36,7 @@ EXPECTED_REVISIONS = {
     "0001_initial_schema", "0002_quote_collection_deadline", "0003_backend_candidate_quote",
     "0004_ai_recommendation", "0005_quotation_email_dispatch", "0006_purchase_order_email_dispatch",
     "0007_stock_receipts", "0008_mock_purchase_workflow", "0009_purchase_tracking",
+    "0010_clean_item_descriptions",
 }
 REQUIRED_INDEXES = {
     "vendor_items": {"ix_vendor_items_one_preferred"},
