@@ -46,7 +46,7 @@ export default function VendorsPage() {
       <div className="nav-item selected" aria-current="page">▧ Vendors</div>
       <Link className="nav-item" to="/purchasing">▣ Purchasing</Link>
       <Link className="nav-item" to="/checkout">▣ Checkout</Link>
-      <div className="sidebar-bottom"><span className="status-dot"/> PostgreSQL-backed <Link to="/setup">Connectivity</Link></div>
+      <div className="sidebar-bottom"><Link to="/setup">Connectivity</Link></div>
     </aside>
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Vendors</strong></span>
@@ -54,7 +54,7 @@ export default function VendorsPage() {
       </header>
       <div className="content">
         <div className="heading-row">
-          <div><h1>Vendors</h1><p className="subtle">Compare sample unit prices and delivery estimates for your current inventory.</p></div>
+          <div><h1>Vendors</h1><p className="subtle">Sample prices and delivery times.</p></div>
           <button className="button-light" disabled={loading} onClick={() => setRefresh(count => count + 1)}>↻ Refresh</button>
         </div>
         {loading && <p className="subtle" role="status">Loading sample quotations…</p>}
@@ -68,7 +68,7 @@ export default function VendorsPage() {
             </section>)}
           </div>
           <section className="panel">
-            <div className="panel-heading"><div><h2>Mock quotations</h2><p>Illustrative terms per inventory unit, with delivery estimates in days.</p></div></div>
+            <div className="panel-heading"><div><h2>Mock quotations</h2></div></div>
             {products.size === 0 ? <p className="empty">No inventory products to quote.</p> : <div className="table-scroll">
               <table>
                 <thead><tr><th scope="col">Product</th>{catalogue.vendors.map(vendor => <th scope="col" key={vendor.id}>{vendor.name}</th>)}</tr></thead>

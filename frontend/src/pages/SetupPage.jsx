@@ -23,18 +23,15 @@ export default function SetupPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-16">
       <header className="mb-10">
-        <p className="text-xs font-bold uppercase tracking-[.25em] text-blue-600">ShelfSync · System status</p>
-        <h1 className="mt-2 text-4xl font-bold">Project connectivity</h1>
-        <p className="mt-3 text-slate-600">Check frontend, API and database connectivity.</p>
+        <h1 className="mt-2 text-4xl font-bold">System status</h1>
       </header>
       <section className="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
-        <Status title="Frontend (React + Vite + Tailwind)" value={{ state: 'connected', detail: 'Page rendered' }} />
-        <Status title="Backend (FastAPI)" value={api} />
-        <Status title="Database (PostgreSQL)" value={database} />
+        <Status title="Website" value={{ state: 'connected', detail: 'Page rendered' }} />
+        <Status title="ShelfSync service" value={api} />
+        <Status title="Database" value={database} />
       </section>
-      <p className="mt-6 text-sm text-slate-600">Backend API docs: <a className="text-blue-700 underline" href={apiDocsUrl} target="_blank" rel="noreferrer">Open API documentation</a></p>
-      <p className="mt-4 text-xs text-slate-500">These checks report service connectivity; sign in to use inventory and purchasing.</p>
-      <Link className="mt-6 inline-block text-sm text-blue-700 underline" to="/">Refresh route</Link>
+      <p className="mt-6 text-sm text-slate-600"><a className="text-blue-700 underline" href={apiDocsUrl} target="_blank" rel="noreferrer">Open API documentation</a></p>
+      <Link className="mt-6 inline-block text-sm text-blue-700 underline" to="/">Back to ShelfSync</Link>
     </main>
   )
 }

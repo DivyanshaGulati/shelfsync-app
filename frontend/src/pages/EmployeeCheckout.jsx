@@ -76,12 +76,12 @@ export default function EmployeeCheckout() {
     } finally { inFlight.current = false; setSaving(false) }
   }
   return <div className="dashboard-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div>{isOwner && <><Link className="nav-item" to="/">▦ Overview</Link><Link className="nav-item" to="/inventory">▤ Inventory</Link><Link className="nav-item" to="/vendors">▧ Vendors</Link><Link className="nav-item" to="/purchasing">▣ Purchasing</Link></>}<div className="nav-item selected">▣ {isOwner ? 'Checkout' : checkoutTitle}</div><div className="sidebar-bottom"><span className="status-dot"/> PostgreSQL-backed</div></aside>
+    <aside className="sidebar"><div className="brand"><span className="brand-icon">▥</span> ShelfSync</div><div className="nav-heading">WORKSPACE</div>{isOwner && <><Link className="nav-item" to="/">▦ Overview</Link><Link className="nav-item" to="/inventory">▤ Inventory</Link><Link className="nav-item" to="/vendors">▧ Vendors</Link><Link className="nav-item" to="/purchasing">▣ Purchasing</Link></>}<div className="nav-item selected">▣ {isOwner ? 'Checkout' : checkoutTitle}</div></aside>
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{user?.name || user?.email} · {user?.role}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
-      <div className="content"><div className="heading-row"><div><div className="eyebrow">LIVE STOCK</div><h1>{checkoutTitle}</h1><p className="subtle">Record actual items used. Available stock excludes reserved quantities.</p></div><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
+      <div className="content"><div className="heading-row"><div><h1>{checkoutTitle}</h1></div><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
         {error && <p role="alert" className="error-banner">{error}</p>}
         {success && <section role="status" className="success-banner"><strong>{success.replayed ? 'Checkout already recorded' : 'Checkout completed'}</strong><p>{success.quantity} × {success.itemName} · Transaction #{success.transaction.id}. Remaining available: {success.available_stock}.</p></section>}
-        <section className="panel checkout-panel"><h2>Record item usage</h2><p className="subtle">Every confirmed checkout is applied atomically by FastAPI and recorded in PostgreSQL.</p>
+        <section className="panel checkout-panel"><h2>Record item usage</h2>
           <form className="checkout-form" onSubmit={submit}>
             <label>Search inventory<input type="search" value={query} onChange={e => changeRequest(() => { setQuery(e.target.value); setSelected('') })} placeholder="Item name, SKU, or category" aria-label="Search inventory" disabled={saving}/></label>
             <label>Select item<select value={selected} required onChange={e => changeRequest(() => setSelected(e.target.value))} disabled={loading || saving}><option value="">Choose an inventory item</option>{matches.map(row => <option key={row.id} value={row.id}>{row.name} ({row.sku}) — {Math.max(0, row.on_hand - row.reserved_qty)} available</option>)}</select></label>
@@ -92,7 +92,6 @@ export default function EmployeeCheckout() {
             {item && available === 0 && <p className="error">No unreserved stock is available for this item.</p>}
             {item && Number.isFinite(count) && count > available && <p className="error">Requested quantity exceeds available stock ({available}).</p>}
             <label>Usage note (optional)<textarea value={note} maxLength="5000" rows="3" placeholder="Where or why was the item used?" onChange={e => changeRequest(() => setNote(e.target.value))} disabled={saving}/></label>
-            <p className="subtle">Confirm only once. If the network fails, retry the unchanged request; ShelfSync reuses its idempotency key.</p>
             <button className="button-primary" type="submit" disabled={!valid || saving || loading}>{saving ? 'Recording checkout…' : `Confirm checkout${valid ? ` · ${count} ${item.unit}` : ''}`}</button>
           </form></section>
       </div></main></div>

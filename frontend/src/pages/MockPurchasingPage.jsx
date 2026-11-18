@@ -127,14 +127,14 @@ export default function MockPurchasingPage({ approvalLimit }) {
         <div className="heading-row">
           <div>
             <h1>Purchasing</h1>
-            <p className="subtle">Simulated vendor emails. AI selects the vendor. Orders over {currency.format(approvalLimit)} need Owner approval.</p>
+            <p className="subtle">Vendor emails are simulated. Orders over {currency.format(approvalLimit)} need Owner approval.</p>
           </div>
           <button className="button-light" disabled={disabled} onClick={() => { setError(''); setReload(count => count + 1) }}>↻ Refresh</button>
         </div>
         {error && <p className="error-banner" role="alert">{error}</p>}
         {notice && <p className="success-banner" role="status">{notice}</p>}
         {!data && !error && <p>Loading orders…</p>}
-        {data?.orders.length === 0 && <p className="panel empty">Purchase requests appear when you request a first order or a checkout triggers replenishment.</p>}
+        {data?.orders.length === 0 && <p className="panel empty">No purchase requests yet.</p>}
         {data?.orders.map(order => <section className="panel purchase-detail" key={order.id}>
           <div className="heading-row">
             <div>
