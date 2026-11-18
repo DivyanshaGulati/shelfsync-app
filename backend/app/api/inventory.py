@@ -4,7 +4,7 @@ Stock mutations are handled by the transactional checkout and receiving services
 """
 from base64 import b64decode
 from binascii import Error as Base64Error
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Annotated
 
@@ -18,6 +18,7 @@ from app.api.auth import require_roles
 from app.core.claude_agent import AgentInvalidResponse, AgentUnavailable, InventoryInsight, explain_inventory
 from app.core.checkout_trends import checkout_growth_tip
 from app.core.forecast import ACTIVE_ON_ORDER_STATUSES, calculate_forecast
+from app.core.inventory_value import inventory_value_trend
 from app.core.mock_purchasing import enabled as mock_purchasing_enabled, process_in_background
 from app.core.replenishment import create_purchase_request
 from app.core.stock_status import build_stock_snapshot
@@ -314,6 +315,20 @@ def inventory_ai_insights(
     response = _saved_insight(report)
     db.commit()
     return response
+
+
+class InventoryValuePoint(BaseModel):
+    date: date
+    value: Decimal
+
+
+@router.get("/value-trend", response_model=list[InventoryValuePoint])
+def inventory_values(
+    db: Annotated[Session, Depends(get_db)],
+    _owner: Annotated[User, Depends(require_roles("OWNER"))],
+    days: Annotated[int, Query(ge=2, le=30)] = 30,
+):
+    return inventory_value_trend(db, days=days)
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

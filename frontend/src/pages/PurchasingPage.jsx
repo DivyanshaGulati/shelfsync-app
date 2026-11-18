@@ -1,21 +1,14 @@
 import { accountLabel } from '../lib/accountLabel.js'
 import PageTitle from '../components/PageTitle.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { getAllPages, requestJSON } from '../lib/api.js'
-import { COMPLETED_PURCHASE_STATUSES } from '../lib/purchaseStatus.js'
+import { matchesPurchaseStatus, purchaseStatusGroups } from '../lib/purchaseStatus.js'
 import MockPurchasingPage from './MockPurchasingPage.jsx'
 import OrderTracking, { trackingLabel } from './OrderTracking.jsx'
 import Sidebar from '../components/Sidebar.jsx'
 
-const tabs = [
-  ['Waiting for Quotes', ['WAITING_FOR_QUOTES']],
-  ['Pending Approval', ['PENDING_APPROVAL']],
-  ['Order Placed', ['PLACED']],
-  ['In Transit', ['IN_TRANSIT', 'PARTIALLY_RECEIVED']],
-  ['Completed', COMPLETED_PURCHASE_STATUSES],
-]
 const money = value => value == null ? '—' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value))
 const number = value => value == null ? '—' : Number(value).toLocaleString('en-IN')
 const date = value => value ? new Date(value).toLocaleString() : '—'
@@ -44,7 +37,8 @@ function DetailedPurchasingPage() {
   const { token, user, logout } = useAuth()
   const [orders, setOrders] = useState([])
   const [items, setItems] = useState([])
-  const [tab, setTab] = useState(0)
+  const [params, setParams] = useSearchParams()
+  const tab = purchaseStatusGroups.find(group => group.key === params.get('status')) ?? purchaseStatusGroups[0]
   const [selected, setSelected] = useState(null)
   const [details, setDetails] = useState({})
   const [choice, setChoice] = useState('')
@@ -97,7 +91,7 @@ function DetailedPurchasingPage() {
     return () => controller.abort()
   }, [canView, token, selected, current?.status, detailRefresh])
   const inventoryById = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
-  const visible = orders.filter(o => tabs[tab][1].includes(o.tracking_status || o.status))
+  const visible = orders.filter(order => matchesPurchaseStatus(order, tab))
   const quoteRows = details.comparison?.quotations || []
   const eligible = quoteRows.filter(q => q.eligible_for_comparison)
   const selectedQuote = eligible.find(q => String(q.quotation_id) === choice)
@@ -117,21 +111,21 @@ function DetailedPurchasingPage() {
       } else {
         setNotice(`${label} completed. ${result?.dispatch_status ? `Dispatch: ${result.dispatch_status}.` : ''} ${result?.new_simulated_replies != null ? `${result.new_simulated_replies} simulated replies created.` : ''}`)
       }
-      const nextTab = tabs.findIndex(([, statuses]) => statuses.includes(result?.order_status || result?.status))
-      if (nextTab >= 0) setTab(nextTab)
+      const nextTab = purchaseStatusGroups.find(group => group.statuses.includes(result?.order_status || result?.status))
+      if (nextTab) setParams({ status: nextTab.key }, { replace: true })
       setRefresh(n => n + 1); setDetailRefresh(n => n + 1)
     } catch (err) {
       setError(message(err))
       if (err.status === 401) logout()
     } finally { setBusy('') }
-  }, [current, busy, token, logout])
+  }, [current, busy, token, logout, setParams])
   if (!canView) return <Navigate to="/" replace />
   return <div className="dashboard-shell">
     <Sidebar />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Purchasing</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
       <div className="content"><div className="heading-row"><PageTitle icon="/purchasing" title="Purchasing" subtitle="Manage purchase orders, approvals and deliveries." /><button className="button-light" disabled={loading || !!busy} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button></div>
       {error && <p role="alert" className="error-banner">{error}</p>}{notice && <p role="status" className="success-banner">{notice}</p>}
-      <section className="panel purchase-panel"><div className="purchase-tabs" role="tablist" aria-label="Purchase order status">{tabs.map(([label, statuses], i) => <button key={label} role="tab" aria-selected={tab === i} className={tab === i ? 'purchase-tab active' : 'purchase-tab'} disabled={!!busy} onClick={() => { setTab(i); setSelected(null); setDetails({}); setChoice(''); setComments('') }}>{label} <strong>{orders.filter(o => statuses.includes(o.tracking_status || o.status)).length}</strong></button>)}</div>
+      <section className="panel purchase-panel"><div className="purchase-tabs" role="tablist" aria-label="Purchase order status">{purchaseStatusGroups.map(group => <button key={group.key} role="tab" aria-selected={tab === group} className={tab === group ? 'purchase-tab active' : 'purchase-tab'} disabled={!!busy} onClick={() => { setParams({ status: group.key }); setSelected(null); setDetails({}); setChoice(''); setComments('') }}>{group.label} <strong>{orders.filter(order => matchesPurchaseStatus(order, group)).length}</strong></button>)}</div>
         {loading ? <p className="subtle">Loading purchase requests…</p> : visible.length === 0 ? <p className="empty">{orders.length ? 'No orders in this category.' : <>No purchase requests yet. <Link to="/">Go to Overview</Link></>}</p> : <div className="purchase-list">{visible.map(o => <button key={o.id} className={selected === o.id ? 'purchase-order selected-order' : 'purchase-order'} disabled={!!busy} onClick={() => { if (o.id !== selected) { setDetails({}); setChoice(''); setComments('') } setSelected(o.id); setNotice(''); setError('') }}><span><strong>#{o.id} · {inventoryById.get(o.inventory_item_id)?.name || `Item ${o.inventory_item_id}`}</strong><small>{inventoryById.get(o.inventory_item_id)?.sku || 'SKU unavailable'} · {o.ordered_quantity} units · {date(o.created_at)}</small></span><span className="purchase-order-end"><span className="stock-pill healthy">{trackingLabel(o) || o.status.replaceAll('_', ' ')}</span><strong>{money(o.total_amount)}</strong></span></button>)}</div>}
       </section>
       {current && <section className="panel purchase-detail"><div className="heading-row"><div><h2>Order #{current.id} · {inventoryById.get(current.inventory_item_id)?.name || 'Inventory item'}</h2><p className="subtle">{inventoryById.get(current.inventory_item_id)?.sku || 'SKU unavailable'} · Required: {number(current.ordered_quantity)} · Received: {number(current.received_quantity)} · Status: {trackingLabel(current) || current.status.replaceAll('_', ' ')}</p></div><button className="button-light" onClick={() => setDetailRefresh(x => x + 1)} disabled={detailLoading}>↻ Reload details</button></div>

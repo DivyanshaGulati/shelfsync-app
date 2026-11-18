@@ -5,7 +5,8 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
-from app.db.models import AIThresholdLog, InventoryItem, OrderItem, PurchaseOrder, StockReceipt
+from app.db.models import AIThresholdLog, InventoryItem, OrderItem, PurchaseOrder, StockReceipt, Transaction
+from app.db.seed import HISTORY_PREFIX
 from test_purchase_order_email_dispatch import po_setup, make_placed
 from test_quotation_collection import setup
 
@@ -16,6 +17,33 @@ def url(oid):
 
 def payload(quantity, key='receipt-1'):
     return {'quantity': quantity, 'idempotency_key': key}
+
+
+def test_inventory_value_trend_reconciles_checkouts_and_receipts(po_setup):
+    client, factory, owner, employee = po_setup
+    oid = make_placed(po_setup)
+    receipt = client.post(url(oid), json=payload(1), headers=owner)
+    assert receipt.status_code == 200, receipt.text
+    now = datetime.now(timezone.utc)
+    yesterday = now - timedelta(days=1)
+    with factory.begin() as db:
+        db.get(InventoryItem, 1).created_at = now - timedelta(days=3)
+        checkout = db.scalar(select(Transaction))
+        checkout.created_at = yesterday
+        db.add(Transaction(user_id=checkout.user_id, inventory_item_id=1, transaction_type='CHECKOUT',
+                           quantity=7, idempotency_key=HISTORY_PREFIX + 'trend-test', created_at=yesterday))
+        db.add(InventoryItem(name='New fitting', sku='NEW-FITTING', category='Plumbing',
+                             unit='pcs', unit_cost=5, on_hand=2, created_at=now))
+
+    path = '/api/inventory/value-trend?days=3'
+    assert client.get(path, headers=employee).status_code == 403
+    response = client.get(path, headers=owner)
+    assert response.status_code == 200, response.text
+    trend = response.json()
+    assert [row['date'] for row in trend] == [
+        (now - timedelta(days=offset)).date().isoformat() for offset in (2, 1, 0)
+    ]
+    assert [Decimal(row['value']) for row in trend] == [Decimal(80), Decimal(20), Decimal(50)]
 
 
 def test_partial_then_full_reconciles_all_and_logs(po_setup):

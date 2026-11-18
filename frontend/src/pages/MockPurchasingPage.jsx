@@ -4,8 +4,10 @@ import PageTitle from '../components/PageTitle.jsx'
 import StockSummary from '../components/StockSummary.jsx'
 import ProductImage from '../components/ProductImage.jsx'
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { getAllPages, requestJSON } from '../lib/api.js'
+import { matchesPurchaseStatus, purchaseStatusGroups } from '../lib/purchaseStatus.js'
 import OrderTracking, { trackingLabel } from './OrderTracking.jsx'
 import Sidebar from '../components/Sidebar.jsx'
 
@@ -56,6 +58,8 @@ function QuoteComparison({ order, token }) {
 
 export default function MockPurchasingPage({ approvalLimit }) {
   const { token, user, logout } = useAuth()
+  const [params] = useSearchParams()
+  const filter = purchaseStatusGroups.find(group => group.key === params.get('status'))
   const [data, setData] = useState(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState(null)
@@ -113,6 +117,7 @@ export default function MockPurchasingPage({ approvalLimit }) {
   }
 
   const disabled = busy != null
+  const visible = data?.orders.filter(order => !filter || matchesPurchaseStatus(order, filter))
   return <div className="dashboard-shell">
     <Sidebar />
     <main className="dashboard-main">
@@ -135,7 +140,11 @@ export default function MockPurchasingPage({ approvalLimit }) {
           ['Needs approval', data.orders.filter(order => order.status === 'PENDING_APPROVAL').length, 'clock', 'amber'],
           ['In transit / delivered', data.orders.filter(order => ['IN_TRANSIT', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(order.status)).length, 'truck', 'green'],
         ]} />}
-        {data?.orders.map(order => <section className="panel purchase-detail" key={order.id}>
+        {filter && data && <div className="heading-row">
+          <h2>{filter.label}</h2><Link to="/purchasing" className="button-light">Show all orders</Link>
+        </div>}
+        {filter && data?.orders.length > 0 && visible.length === 0 && <p className="panel empty">No orders in this category.</p>}
+        {visible?.map(order => <section className="panel purchase-detail" key={order.id}>
           <div className="purchase-card">
             <div className="purchase-product">
               <ProductImage sku={data.items.get(order.inventory_item_id)?.sku} name={data.items.get(order.inventory_item_id)?.name} />

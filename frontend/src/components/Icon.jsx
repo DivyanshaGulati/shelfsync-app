@@ -14,6 +14,7 @@ const paths = {
   clock: 'M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9z M12 7v5l3 2',
   calendar: 'M4 5h16v15H4z M8 3v4 M16 3v4 M4 10h16 M8 14h1 M12 14h1 M16 14h1',
   growth: 'm3 17 6-6 4 4 8-10 M15 5h6v6',
+  refresh: 'M20 11a8 8 0 0 0-14-5L3 9 M3 4v5h5 M4 13a8 8 0 0 0 14 5l3-3 M21 20v-5h-5',
   list: 'M8 6h13 M8 12h13 M8 18h13 M3 6h1 M3 12h1 M3 18h1',
   savings: 'M10 6c0-2 3-3 6-3s6 1 6 3-3 3-6 3-6-1-6-3z M10 6v5 M22 6v8c0 2-3 3-6 3h-1 M3 13c0-2 3-3 6-3s6 1 6 3-3 3-6 3-6-1-6-3z M3 13v5c0 2 3 3 6 3s6-1 6-3v-5',
   truck: 'M2 4h13v13H2z M15 9h4l3 4v4h-7 M6 17v3h2v-3 M17 17v3h2v-3',

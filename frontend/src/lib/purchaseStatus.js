@@ -1,5 +1,17 @@
 export const COMPLETED_PURCHASE_STATUSES = ['RECEIVED', 'REJECTED']
 
+export const purchaseStatusGroups = [
+  { key: 'quotes', label: 'Waiting for Quotes', statuses: ['WAITING_FOR_QUOTES'] },
+  { key: 'approval', label: 'Pending Approval', statuses: ['PENDING_APPROVAL'] },
+  { key: 'placed', label: 'Order Placed', statuses: ['PLACED'] },
+  { key: 'transit', label: 'In Transit', statuses: ['IN_TRANSIT', 'PARTIALLY_RECEIVED'] },
+  { key: 'completed', label: 'Completed', statuses: COMPLETED_PURCHASE_STATUSES },
+]
+
+export function matchesPurchaseStatus(order, group) {
+  return group.statuses.includes(order.tracking_status || order.status)
+}
+
 const onOrderStatuses = new Set(['PLACED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED'])
 
 export function inventoryRows(items, orders) {
