@@ -128,7 +128,7 @@ export default function MockPurchasingPage({ approvalLimit }) {
       <div className="content">
         <div className="heading-row">
           <PageTitle icon="/purchasing" title="Purchasing"
-            subtitle={`Simulated vendor emails. Orders over ${currency.format(approvalLimit)} need Owner approval.`} />
+            subtitle={`Vendor emails are simulated. Orders over ${currency.format(approvalLimit)} need Owner approval.`} />
           <button className="button-light" disabled={disabled} onClick={() => { setError(''); setReload(count => count + 1) }}>↻ Refresh</button>
         </div>
         {error && <p className="error-banner" role="alert">{error}</p>}

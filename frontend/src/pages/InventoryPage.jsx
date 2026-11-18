@@ -95,7 +95,7 @@ export default function InventoryPage() {
       if (requestFirstOrder) {
         setNotice(<>First order requested. <Link to="/purchasing">Track it in Purchasing</Link>.</>)
       } else {
-        setNotice(editing === 'new' ? 'Item created. Use a receipt to add stock.' : 'Item details saved.')
+        setNotice(editing === 'new' ? 'Item created. Stock starts at zero; use a verified receipt to add stock.' : 'Item details saved. Stock quantities were not changed.')
       }
       setRefresh(x => x + 1)
     } catch (err) { setError(err.message) } finally { setSaving(false) }
@@ -103,7 +103,7 @@ export default function InventoryPage() {
   return <div className="dashboard-shell">
     <Sidebar />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Inventory</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
-    <div className="content"><div className="heading-row"><PageTitle icon="/inventory" title="Inventory Management" /><div className="inventory-actions"><button type="button" className="button-light" aria-pressed={lowOnly} onClick={() => setFilters(current => {
+    <div className="content"><div className="heading-row"><PageTitle icon="/inventory" title="Inventory Management" subtitle="View, search and manage your inventory items." /><div className="inventory-actions"><button type="button" className="button-light" aria-pressed={lowOnly} onClick={() => setFilters(current => {
       const next = new URLSearchParams(current)
       if (lowOnly) next.delete('stock')
       else next.set('stock', 'low')
@@ -117,13 +117,13 @@ export default function InventoryPage() {
       ['Categories', new Set(rows.map(item => item.category)).size, 'layers', 'violet'],
     ]} />}
     <section className="panel inventory-panel"><div className="inventory-toolbar"><label>Search items<input aria-label="Search items" placeholder="Search by item name or SKU" value={search} onChange={e => setSearch(e.target.value)}/></label><label>Category<select aria-label="Category filter" value={category} onChange={e => setCategory(e.target.value)}>{['All categories', ...new Set([...categories, ...items.map(i => i.category)])].map(c => <option key={c}>{c}</option>)}</select></label><span className="inventory-count">{filtered.length} of {rows.length} items</span></div>
-    <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Category</th><th>On hand</th><th>On order</th><th>Reserved</th><th>Reorder point</th><th>Position</th><th>Status</th><th>Unit cost</th><th>Action</th></tr></thead><tbody>{filtered.map(item => <tr key={item.id}><td><ProductIdentity name={item.name} sku={item.sku} unit={item.unit} category={item.category} thumbnail={item.thumbnail} /></td><td><span className="category-pill" data-category={item.category}>{item.category}</span></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{item.reserved_qty}</td><td>{Number(item.reorder_point).toFixed(1)}</td><td>{item.position}</td><td><span className={item.low ? 'stock-pill low' : 'stock-pill healthy'}>{item.low ? 'Low Stock' : 'Healthy'}</span></td><td>{rupees.format(Number(item.unit_cost))}</td><td><button className="button-light" onClick={() => openForm(item)}>Edit</button></td></tr>)}{!loading && filtered.length === 0 && <tr><td colSpan="10" className="empty">No matching inventory items.</td></tr>}</tbody></table></div>{loading && <p className="subtle">Loading inventory…</p>}</section>
+    <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Category</th><th>On hand</th><th>On order</th><th>Reserved</th><th>Reorder point</th><th>Position</th><th>Status</th><th>Unit cost</th><th>Action</th></tr></thead><tbody>{filtered.map(item => <tr key={item.id}><td><ProductIdentity name={item.name} sku={item.sku} unit={item.unit} category={item.category} thumbnail={item.thumbnail} /></td><td><span className="category-pill" data-category={item.category}>{item.category}</span></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{item.reserved_qty}</td><td>{Number(item.reorder_point).toFixed(1)}</td><td>{item.position}</td><td><span className={item.low ? 'stock-pill low' : 'stock-pill healthy'}>{item.low ? 'Low Stock' : 'Healthy'}</span></td><td>{rupees.format(Number(item.unit_cost))}</td><td><button className="button-light" onClick={() => openForm(item)}>Edit</button></td></tr>)}{!loading && filtered.length === 0 && <tr><td colSpan="10" className="empty">No matching inventory items.</td></tr>}</tbody></table></div>{loading && <p className="subtle">Loading inventory and purchase orders…</p>}</section>
     {editing !== null && <div className="modal-backdrop"><section className="item-dialog" role="dialog" aria-modal="true" aria-label={editing === 'new' ? 'Add item' : 'Edit item'}><h2>{editing === 'new' ? 'Add inventory item' : 'Edit item details'}</h2><form onSubmit={save}>{[['name','Item name'],['sku','SKU'],['category','Category'],['unit','Unit'],['unit_cost','Unit cost (INR)']].map(([key,label]) => <label key={key}>{label}{key === 'category' ? <><input list="shelfsync-categories" required maxLength="100" value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}/><datalist id="shelfsync-categories">{categories.map(c => <option key={c} value={c}/>)}</datalist></> : <input required maxLength={key === 'name' ? 200 : key === 'sku' ? 64 : 40} type={key === 'unit_cost' ? 'number' : 'text'} min={key === 'unit_cost' ? 0 : undefined} step={key === 'unit_cost' ? '.01' : undefined} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}/>}</label>)}
     {initialOrderQuantity !== null && <label>
       First order quantity (optional)
       <input type="number" min="1" max="2147483647" step="1" value={initialOrderQuantity}
         onChange={e => setInitialOrderQuantity(e.target.value)} />
-      <span className="subtle">Creates a purchase request.</span>
+      <span className="subtle">Enter the number of units to request in Purchasing.</span>
     </label>}
     <div className="full item-photo">
       <ProductImage sku={form.sku} name={form.name} category={form.category} thumbnail={thumbnail} />

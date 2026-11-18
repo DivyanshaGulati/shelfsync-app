@@ -318,6 +318,10 @@ td.empty { padding: 24px 12px; }
 .login-intro { color: #101f43; }
 .login-intro h1 { font-weight: 750; font-size: clamp(32px, 3.3vw, 52px); line-height: 1.08; letter-spacing: -.05em; }
 .login-intro em { display: block; color: #094fc2; font-size: 1.45em; }
+.login-intro > p { max-width: 320px; margin: 28px 0; }
+.login-intro ul { display: grid; gap: 16px; }
+.login-intro li { display: flex; gap: 12px; align-items: center; }
+.login-intro small { display: block; }
 .login-panel { width: 100%; max-width: 520px; margin: 0; text-align: center; }
 .login-panel form { text-align: left; }
 .login-brand { display: inline-flex; align-items: center; gap: 6px; font-size: 28px; font-weight: 750; letter-spacing: -.05em; }

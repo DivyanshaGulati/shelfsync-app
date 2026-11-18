@@ -139,8 +139,8 @@ export default function InventoryInsightsPage() {
               <h2 className="section-title"><Icon name="growth" /> Business Growth Tip</h2>
               {tip ? <>
                 <p><strong>{tip.products.join(' + ')}</strong> appeared together in {tip.together} of {tip.total} tracked checkouts ({tip.share}%) in the last {tip.window_days} days.</p>
-                <p>{tip.action === 'test_bundle' ? 'Try a bundle and track how often these items are checked out together.' : 'Display these items together and track how often they’re checked out together.'}</p>
-              </> : <p>Not enough paired checkouts yet.</p>}
+                <p>{tip.action === 'test_bundle' ? 'Try offering these items as a bundle and track how often they’re checked out together.' : 'Display these items together and track how often they’re checked out together.'}</p>
+              </> : <p>Not enough checkout history yet. Check back after more items are checked out together.</p>}
             </section>
           )}
 

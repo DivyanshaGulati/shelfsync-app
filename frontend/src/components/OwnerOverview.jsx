@@ -34,7 +34,7 @@ export default function OwnerOverview({ data, loading, error, onRefresh }) {
 
   return <div className="content owner-overview">
     <div className="heading-row">
-      <PageTitle icon="/insights" title="Welcome back!" />
+      <PageTitle icon="/insights" title="Welcome back!" subtitle="Here’s what’s happening with your inventory today." />
       <div className="overview-controls">
         <label className="button-light overview-period">
           <Icon name="calendar" />
@@ -88,7 +88,9 @@ export default function OwnerOverview({ data, loading, error, onRefresh }) {
           </div> : <p className="overview-trend-empty">Inventory trend could not be loaded. Refresh to try again.</p>}
         </section>
         <section className="panel" aria-labelledby="overview-pipeline">
-          <PanelHeading id="overview-pipeline" icon="/purchasing" title="Purchase Pipeline" />
+          <PanelHeading id="overview-pipeline" icon="/purchasing" title="Purchase Pipeline">
+            Your purchasing status at a glance
+          </PanelHeading>
           <div className="overview-pipeline">
             <div className="overview-donut">
               <ResponsiveContainer width="100%" height="100%">
@@ -126,6 +128,6 @@ function Metric({ label, icon, tone, value, children }) {
 function PanelHeading({ id, title, icon, children }) {
   return <header className="overview-panel-heading">
     <span className="icon-tile"><Icon name={icon} /></span>
-    <div><h2 id={id}>{title}</h2>{children && <p>{children}</p>}</div>
+    <div><h2 id={id}>{title}</h2><p>{children}</p></div>
   </header>
 }
