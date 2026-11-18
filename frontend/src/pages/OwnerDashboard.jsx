@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import Icon from '../components/Icon.jsx'
 import PageTitle from '../components/PageTitle.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -90,7 +91,7 @@ export default function OwnerDashboard() {
           <span>Operations / <strong>Overview</strong></span>
           {user && (
             <div className="topbar-actions">
-              <span>{user.name} · OWNER</span>
+              <span>{accountLabel(user)}</span>
               <button onClick={logout} className="button-light">Sign out</button>
             </div>
           )}

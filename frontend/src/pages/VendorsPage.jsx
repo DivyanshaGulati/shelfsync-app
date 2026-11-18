@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import Icon from '../components/Icon.jsx'
 import PageTitle from '../components/PageTitle.jsx'
 import ProductIdentity from '../components/ProductIdentity.jsx'
@@ -45,7 +46,7 @@ export default function VendorsPage() {
     <Sidebar />
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Vendors</strong></span>
-        <div className="topbar-actions"><span>{user.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div>
+        <div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div>
       </header>
       <div className="content">
         <div className="heading-row">

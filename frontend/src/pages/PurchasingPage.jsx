@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import PageTitle from '../components/PageTitle.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
@@ -127,7 +128,7 @@ function DetailedPurchasingPage() {
   if (!canView) return <Navigate to="/" replace />
   return <div className="dashboard-shell">
     <Sidebar />
-    <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Purchasing</strong></span><div className="topbar-actions"><span>{user?.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
+    <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Purchasing</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
       <div className="content"><div className="heading-row"><PageTitle icon="/purchasing" title="Purchasing" subtitle="Manage purchase orders, approvals and deliveries." /><button className="button-light" disabled={loading || !!busy} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button></div>
       {error && <p role="alert" className="error-banner">{error}</p>}{notice && <p role="status" className="success-banner">{notice}</p>}
       <section className="panel purchase-panel"><div className="purchase-tabs" role="tablist" aria-label="Purchase order status">{tabs.map(([label, statuses], i) => <button key={label} role="tab" aria-selected={tab === i} className={tab === i ? 'purchase-tab active' : 'purchase-tab'} disabled={!!busy} onClick={() => { setTab(i); setSelected(null); setDetails({}); setChoice(''); setComments('') }}>{label} <strong>{orders.filter(o => statuses.includes(o.tracking_status || o.status)).length}</strong></button>)}</div>

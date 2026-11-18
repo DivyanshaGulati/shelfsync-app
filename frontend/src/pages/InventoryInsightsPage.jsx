@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import Icon from '../components/Icon.jsx'
 import PageTitle from '../components/PageTitle.jsx'
 import { useEffect, useRef, useState } from 'react'
@@ -100,7 +101,7 @@ export default function InventoryInsightsPage() {
         <header className="topbar">
           <span>Operations / <strong>AI Inventory Insights</strong></span>
           <div className="topbar-actions">
-            <span>{user.name} · OWNER</span>
+            <span>{accountLabel(user)}</span>
             <button className="button-light" onClick={logout}>Sign out</button>
           </div>
         </header>

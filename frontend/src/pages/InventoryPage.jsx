@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import PageTitle from '../components/PageTitle.jsx'
 import StockSummary from '../components/StockSummary.jsx'
 import ProductIdentity from '../components/ProductIdentity.jsx'
@@ -73,7 +74,7 @@ export default function InventoryPage() {
   }
   return <div className="dashboard-shell">
     <Sidebar />
-    <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Inventory</strong></span><div className="topbar-actions"><span>{user?.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
+    <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Inventory</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
     <div className="content"><div className="heading-row"><PageTitle icon="/inventory" title="Inventory Management" subtitle="View, search and manage your inventory items." /><div className="inventory-actions"><button className="button-light" disabled={loading} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button><button className="button-primary" onClick={() => openForm(null)}>+ Add Item</button></div></div>
     {notice && <p className="success-banner" role="status">{notice}</p>}{error && <p className="error-banner" role="alert">{error}</p>}
     {!loading && !error && <StockSummary entries={[

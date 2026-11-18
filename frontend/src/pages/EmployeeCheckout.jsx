@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import ProductIdentity from '../components/ProductIdentity.jsx'
 import Icon from '../components/Icon.jsx'
 import PageTitle from '../components/PageTitle.jsx'
@@ -102,7 +103,7 @@ export default function EmployeeCheckout() {
   }
   return <div className="dashboard-shell">
     <Sidebar employee={!isOwner} />
-    <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{user?.name || user?.email} · {user?.role}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
+    <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
       <div className="content"><div className="heading-row"><PageTitle icon="/purchasing" title={checkoutTitle} subtitle="Record items taken out and update stock." /><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
         {error && <p role="alert" className="error-banner">{error}</p>}
         {success && <p className="success-banner" role="status">{success} checkout {success === 1 ? 'entry' : 'entries'} recorded.</p>}

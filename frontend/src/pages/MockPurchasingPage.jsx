@@ -1,3 +1,4 @@
+import { accountLabel } from '../lib/accountLabel.js'
 import Icon from '../components/Icon.jsx'
 import PageTitle from '../components/PageTitle.jsx'
 import StockSummary from '../components/StockSummary.jsx'
@@ -117,7 +118,7 @@ export default function MockPurchasingPage({ approvalLimit }) {
     <main className="dashboard-main">
       <header className="topbar">
         <span>Operations / <strong>Purchasing</strong></span>
-        <div className="topbar-actions"><span>{user.name} · OWNER</span><button className="button-light" onClick={logout}>Sign out</button></div>
+        <div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div>
       </header>
       <div className="content">
         <div className="heading-row">
