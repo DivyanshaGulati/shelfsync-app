@@ -50,10 +50,9 @@ export default function OwnerOverview({ data, loading, error, onRefresh }) {
     {data ? <>
       <div className="overview-metrics">
         <Metric label="Inventory Value" icon="/inventory" tone="blue" value={money.format(value)}>
-          {change === null ? <small>On-hand stock at unit cost</small>
-            : <small className={change < 0 ? 'overview-decrease' : 'overview-increase'}>
-              {change > 0 ? '↑ ' : change < 0 ? '↓ ' : ''}{Math.abs(change)}% vs start of period
-            </small>}
+          {change !== null && <small className={change < 0 ? 'overview-decrease' : 'overview-increase'}>
+            {change > 0 ? '↑ ' : change < 0 ? '↓ ' : ''}{Math.abs(change)}% vs start of period
+          </small>}
         </Metric>
         <Metric label="Low-Stock Items" icon="alert" tone="amber" value={inventory.filter(item => item.low).length}>
           <Link to="/inventory?stock=low">View Details →</Link>
@@ -122,7 +121,7 @@ function Metric({ label, icon, tone, value, children }) {
   return <section className={`overview-metric ${tone}`}>
     <h2><span className="icon-tile"><Icon name={icon} /></span><span className="overview-metric-label">{label}</span></h2>
     <strong>{value}</strong>
-    <div className="overview-metric-action">{children}</div>
+    {children && <div className="overview-metric-action">{children}</div>}
   </section>
 }
 
