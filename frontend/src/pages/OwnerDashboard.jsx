@@ -67,13 +67,8 @@ export default function OwnerDashboard() {
         </header>
       )}
       {!token ? <div className="login-stage">
-        <section className="login-intro"><h1>Welcome to <em>ShelfSync</em></h1>
-          <p>A simple, intelligent way to manage your inventory, purchasing and daily operations.</p>
-          <ul>{[['/insights', 'AI Inventory Insights', 'Clear, actionable guidance'], ['/inventory', 'Inventory Control', 'Know what you have'], ['/purchasing', 'Purchasing & Checkout', 'Keep your stock moving']].map(([icon, title, detail]) =>
-            <li key={title}><span className="icon-tile"><Icon name={icon} /></span><div><strong>{title}</strong><small>{detail}</small></div></li>
-          )}</ul>
-        </section>
-        <section className="login-panel"><div className="login-brand">ShelfSync</div><h2>Sign in to your workspace</h2><p>Access your inventory, orders and insights</p><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>
+        <section className="login-intro"><h1>Welcome to <em>ShelfSync</em></h1></section>
+        <section className="login-panel"><div className="login-brand">ShelfSync</div><h2>Sign in</h2><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>
           {error && <p className="error" role="alert">{error}</p>}
           <Link to="/contact" className="login-contact"><Icon name="contact" />Contact</Link>
         </section>

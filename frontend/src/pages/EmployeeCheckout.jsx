@@ -105,7 +105,7 @@ export default function EmployeeCheckout() {
   return <div className="dashboard-shell">
     <Sidebar employee={!isOwner} />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
-      <div className="content"><div className="heading-row"><PageTitle icon="/purchasing" title={checkoutTitle} subtitle="Record items taken out and update stock." /><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
+      <div className="content"><div className="heading-row"><PageTitle icon="/purchasing" title={checkoutTitle} /><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
         {error && <p role="alert" className="error-banner">{error}</p>}
         {success && <p className="success-banner" role="status">{success} checkout {success === 1 ? 'entry' : 'entries'} recorded.</p>}
         <section className="panel checkout-panel">
@@ -127,7 +127,7 @@ export default function EmployeeCheckout() {
             {!loading && matches.length === 0 && <p className="subtle">No matching items found.</p>}
             {item && <div className="checkout-stock"><ProductImage sku={item.sku} name={item.name} /><div><small>On hand</small><strong>{item.on_hand}</strong></div><div><small>Reserved</small><strong>{item.reserved_qty}</strong></div><div><small>Available</small><strong>{available} {item.unit}</strong></div></div>}
             {item && available === 0 && <p className="error">No unreserved stock is available for this item.</p>}
-            {item && Number.isFinite(count) && count > available && <p className="error">Requested quantity exceeds available stock ({available}).</p>}
+            {item && available > 0 && Number.isFinite(count) && count > available && <p className="error">Requested quantity exceeds available stock ({available}).</p>}
             <details className="checkout-options">
               <summary>Search or add a note</summary>
             <label>Search inventory<input type="search" value={query} onChange={e => changeRequest(() => { setQuery(e.target.value); setSelected('') })} placeholder="Item name, SKU, or category" aria-label="Search inventory" disabled={saving}/></label>

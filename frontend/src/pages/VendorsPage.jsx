@@ -50,7 +50,7 @@ export default function VendorsPage() {
       </header>
       <div className="content">
         <div className="heading-row">
-          <PageTitle icon="/vendors" title="Vendors" subtitle="Compare supplier prices and delivery times." />
+          <PageTitle icon="/vendors" title="Vendors" />
           <button className="button-light" disabled={loading} onClick={() => setRefresh(count => count + 1)}>↻ Refresh</button>
         </div>
         {loading && <p className="subtle" role="status">Loading sample quotations…</p>}

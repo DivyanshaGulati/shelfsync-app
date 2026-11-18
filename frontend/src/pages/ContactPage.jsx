@@ -27,8 +27,7 @@ export default function ContactPage() {
   return <main className="panel contact-page">
     <Link className="contact-back" to="/">← ShelfSync</Link>
     <h1>Contact ShelfSync</h1>
-    <p className="subtle">Send a question or share feedback with the ShelfSync team.</p>
-    {sent ? <p className="success-banner" role="status">Your message has been submitted. Thank you for contacting ShelfSync.</p> :
+    {sent ? <p className="success-banner" role="status">Message submitted.</p> :
       <form onSubmit={submit} className="contact-form">
         <label>Your name<input name="name" autoComplete="name" required maxLength={100} value={form.name} onChange={update} /></label>
         <label>Your email<input name="email" type="email" autoComplete="email" required maxLength={254} value={form.email} onChange={update} /></label>
