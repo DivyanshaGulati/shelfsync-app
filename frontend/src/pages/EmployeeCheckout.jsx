@@ -1,3 +1,7 @@
+import ProductIdentity from '../components/ProductIdentity.jsx'
+import Icon from '../components/Icon.jsx'
+import PageTitle from '../components/PageTitle.jsx'
+import ProductImage from '../components/ProductImage.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
@@ -30,7 +34,7 @@ export default function EmployeeCheckout() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
   const [refresh, setRefresh] = useState(0)
-  const attempt = useRef(null)
+  const [cart, setCart] = useState([])
   const inFlight = useRef(false)
   const isOwner = user?.role === 'OWNER'
   const checkoutTitle = isOwner ? 'Owner Checkout' : 'Employee Checkout'
@@ -51,49 +55,92 @@ export default function EmployeeCheckout() {
   const count = Number(quantity)
   const valid = item && Number.isSafeInteger(count) && count > 0 && count <= available && note.length <= 5000
   if (!allowed) return <Navigate to="/" replace />
-  function changeRequest(fn) { if (saving) return; attempt.current = null; setSuccess(null); setError(''); fn() }
+  function changeRequest(fn) { if (saving) return; setSuccess(null); setError(''); fn() }
   async function reload() { setRefresh(n => n + 1) }
-  async function submit(event) {
+  function addItem(event) {
     event.preventDefault()
-    if (!valid || inFlight.current) return
-    const body = { inventory_item_id: item.id, quantity: count, usage_note: note.trim() || null }
-    const signature = JSON.stringify(body)
+    if (!valid || saving) return
+    const queued = cart.filter(line => line.item.id === item.id).reduce((sum, line) => sum + line.quantity, 0)
+    if (queued + count > available) {
+      setError('The combined quantity exceeds available stock.')
+      return
+    }
     try {
-      if (!attempt.current || attempt.current.signature !== signature) attempt.current = { signature, key: newKey() }
-    } catch (err) { setError(describeError(err)); return }
-    inFlight.current = true; setSaving(true); setError(''); setSuccess(null)
+      const line = { item, quantity: count, note: note.trim() || null, key: newKey() }
+      setCart(lines => [...lines, line])
+      setSelected('')
+      setQuantity('1')
+      setNote('')
+      setError('')
+      setSuccess(null)
+    } catch (err) { setError(describeError(err)) }
+  }
+
+  async function completeCheckout() {
+    if (!cart.length || inFlight.current) return
+    inFlight.current = true
+    setSaving(true)
+    setError('')
+    setSuccess(null)
+    let completed = 0
     try {
-      const response = await requestJSON('/api/checkout', { token, method: 'POST', body: { ...body, idempotency_key: attempt.current.key } })
-      setSuccess({ ...response, itemName: item.name, quantity: count })
-      attempt.current = null
-      setItems(rows => rows.map(row => row.id === item.id ? { ...row, on_hand: response.on_hand } : row))
-      setQuantity('1'); setNote(''); setSelected('')
-      // A confirmed response (including a replay) ends this attempt.
-      reload()
+      for (const line of cart) {
+        const body = { inventory_item_id: line.item.id, quantity: line.quantity, usage_note: line.note, idempotency_key: line.key }
+        await requestJSON('/api/checkout', { token, method: 'POST', body })
+        completed += 1
+        setCart(lines => lines.filter(entry => entry.key !== line.key))
+      }
     } catch (err) {
       setError(describeError(err))
       if (err instanceof ApiError && err.status === 401) logout()
-      // Do not discard the key: the server may have committed before a network failure.
-    } finally { inFlight.current = false; setSaving(false) }
+    } finally {
+      setSuccess(completed || null)
+      reload()
+      inFlight.current = false
+      setSaving(false)
+    }
   }
   return <div className="dashboard-shell">
     <Sidebar employee={!isOwner} />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Checkout</strong></span><div className="topbar-actions"><span>{user?.name || user?.email} · {user?.role}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
-      <div className="content"><div className="heading-row"><div><h1>{checkoutTitle}</h1></div><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
+      <div className="content"><div className="heading-row"><PageTitle icon="/purchasing" title={checkoutTitle} subtitle="Record items taken out and update stock." /><button className="button-light" type="button" disabled={loading || saving} onClick={reload}>↻ Refresh stock</button></div>
         {error && <p role="alert" className="error-banner">{error}</p>}
-        {success && <section role="status" className="success-banner"><strong>{success.replayed ? 'Checkout already recorded' : 'Checkout completed'}</strong><p>{success.quantity} × {success.itemName} · Transaction #{success.transaction.id}. Remaining available: {success.available_stock}.</p></section>}
-        <section className="panel checkout-panel"><h2>Record item usage</h2>
-          <form className="checkout-form" onSubmit={submit}>
-            <label>Search inventory<input type="search" value={query} onChange={e => changeRequest(() => { setQuery(e.target.value); setSelected('') })} placeholder="Item name, SKU, or category" aria-label="Search inventory" disabled={saving}/></label>
+        {success && <p className="success-banner" role="status">{success} checkout {success === 1 ? 'entry' : 'entries'} recorded.</p>}
+        <section className="panel checkout-panel">
+          <form className="checkout-form" onSubmit={addItem}>
             <label>Select item<select value={selected} required onChange={e => changeRequest(() => setSelected(e.target.value))} disabled={loading || saving}><option value="">Choose an inventory item</option>{matches.map(row => <option key={row.id} value={row.id}>{row.name} ({row.sku}) — {Math.max(0, row.on_hand - row.reserved_qty)} available</option>)}</select></label>
+            <div className="quantity-field">
+              <label htmlFor="checkout-quantity">Quantity</label>
+              <div className="quantity-stepper">
+                <button type="button" aria-label="Decrease quantity" disabled={saving || count <= 1}
+                  onClick={() => changeRequest(() => setQuantity(String(Math.max(1, count - 1))))}>−</button>
+                <input id="checkout-quantity" type="number" required min="1" max={available || undefined}
+                  step="1" inputMode="numeric" value={quantity} onChange={e => changeRequest(() => setQuantity(e.target.value))} disabled={saving} />
+                <button type="button" aria-label="Increase quantity" disabled={saving || !item || count >= available}
+                  onClick={() => changeRequest(() => setQuantity(String(count + 1)))}>+</button>
+              </div>
+            </div>
+            <button className="button-primary" type="submit" disabled={!valid || saving || loading}>+ Add to Checkout</button>
             {loading && <p className="subtle">Loading inventory…</p>}
             {!loading && matches.length === 0 && <p className="subtle">No matching items found.</p>}
-            {item && <div className="checkout-stock"><div><small>On hand</small><strong>{item.on_hand}</strong></div><div><small>Reserved</small><strong>{item.reserved_qty}</strong></div><div><small>Available</small><strong>{available} {item.unit}</strong></div></div>}
-            <label>Quantity<input type="number" required min="1" max={available || undefined} step="1" inputMode="numeric" value={quantity} onChange={e => changeRequest(() => setQuantity(e.target.value))} disabled={saving}/></label>
+            {item && <div className="checkout-stock"><ProductImage sku={item.sku} name={item.name} /><div><small>On hand</small><strong>{item.on_hand}</strong></div><div><small>Reserved</small><strong>{item.reserved_qty}</strong></div><div><small>Available</small><strong>{available} {item.unit}</strong></div></div>}
             {item && available === 0 && <p className="error">No unreserved stock is available for this item.</p>}
             {item && Number.isFinite(count) && count > available && <p className="error">Requested quantity exceeds available stock ({available}).</p>}
-            <label>Usage note (optional)<textarea value={note} maxLength="5000" rows="3" placeholder="Where or why was the item used?" onChange={e => changeRequest(() => setNote(e.target.value))} disabled={saving}/></label>
-            <button className="button-primary" type="submit" disabled={!valid || saving || loading}>{saving ? 'Recording checkout…' : `Confirm checkout${valid ? ` · ${count} ${item.unit}` : ''}`}</button>
+            <details className="checkout-options">
+              <summary>Search or add a note</summary>
+            <label>Search inventory<input type="search" value={query} onChange={e => changeRequest(() => { setQuery(e.target.value); setSelected('') })} placeholder="Item name, SKU, or category" aria-label="Search inventory" disabled={saving}/></label>
+              <label>Usage note (optional)<textarea value={note} maxLength="5000" rows="3" placeholder="Where or why was the item used?" onChange={e => changeRequest(() => setNote(e.target.value))} disabled={saving}/></label>
+            </details>
           </form></section>
+        <section className="panel cart-panel">
+          <div className="heading-row"><h2 className="section-title"><Icon name="layers" /> Items in this Checkout ({cart.length})</h2>
+            <button className="button-light" disabled={!cart.length || saving} onClick={() => setCart([])}>Clear all</button>
+          </div>
+          {cart.length ? <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Quantity</th><th>Action</th></tr></thead>
+            <tbody>{cart.map(line => <tr key={line.key}><td><ProductIdentity name={line.item.name} sku={line.item.sku} unit={line.item.unit} /></td>
+              <td>{line.quantity}</td><td><button className="button-light" disabled={saving} aria-label={`Remove ${line.item.name}`} onClick={() => setCart(lines => lines.filter(entry => entry.key !== line.key))}><Icon name="trash" /></button></td>
+            </tr>)}</tbody></table></div> : <p className="subtle">Add an item to start your checkout.</p>}
+        </section>
+        <button className="button-primary checkout-complete" disabled={!cart.length || saving || loading} onClick={completeCheckout}>{saving ? 'Recording…' : 'Complete Checkout'}</button>
       </div></main></div>
 }

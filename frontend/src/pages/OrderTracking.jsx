@@ -4,11 +4,11 @@ export function trackingLabel(order) {
   return labels[order.tracking_status]
 }
 
-export default function OrderTracking({ order, disabled, onTransit, onDelivery }) {
+export default function OrderTracking({ order, disabled, onTransit, onDelivery, showDetails = true }) {
   const days = order.expected_delivery_days == null ? null : Number(order.expected_delivery_days)
   return <>
-    {order.vendor_name && <p className="subtle">Selected vendor · {order.vendor_name}</p>}
-    {(days != null || order.tracking_status) && <p className="subtle">
+    {showDetails && order.vendor_name && <p className="subtle">Selected vendor · {order.vendor_name}</p>}
+    {showDetails && (days != null || order.tracking_status) && <p className="subtle">
       Expected delivery · {days == null ? 'Estimate unavailable' : `${days} ${days === 1 ? 'day' : 'days'} from placement`}
     </p>}
     {order.tracking_status === 'PLACED' &&

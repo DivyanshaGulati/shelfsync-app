@@ -1,3 +1,5 @@
+import Icon from '../components/Icon.jsx'
+import PageTitle from '../components/PageTitle.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -84,8 +86,15 @@ export default function OwnerDashboard() {
     <Sidebar showContact />
     <main className="dashboard-main">
       <header className="topbar"><span>Operations / <strong>Overview</strong></span><div className="topbar-actions">{user && <><span>{user.name} · OWNER</span><button onClick={logout} className="button-light">Sign out</button></>}</div></header>
-      {!token ? <section className="login-panel"><h1>Welcome to ShelfSync</h1><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>{error && <p className="error" role="alert">{error}</p>}</section> : <div className="content">
-        <div className="heading-row"><div><h1>Owner Dashboard</h1></div><button className="button-primary" disabled={loading} onClick={()=>setRefresh(x=>x+1)}>{loading?'Loading…':'↻ Refresh data'}</button></div>
+      {!token ? <div className="login-stage">
+        <section className="login-intro"><h1>Welcome to <em>ShelfSync</em></h1>
+          <p>A simple, intelligent way to manage your inventory, purchasing and daily operations.</p>
+          <ul>{[['/insights', 'AI Inventory Insights', 'Clear, actionable guidance'], ['/inventory', 'Inventory Control', 'Know what you have'], ['/purchasing', 'Purchasing & Checkout', 'Keep your stock moving']].map(([icon, title, detail]) =>
+            <li key={title}><span className="icon-tile"><Icon name={icon} /></span><div><strong>{title}</strong><small>{detail}</small></div></li>
+          )}</ul>
+        </section>
+        <section className="login-panel"><div className="login-brand">ShelfSync</div><h2>Sign in to your workspace</h2><p>Access your inventory, orders and insights</p><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>{error && <p className="error" role="alert">{error}</p>}</section></div> : <div className="content">
+        <div className="heading-row"><PageTitle icon="/" title="Owner Dashboard" /><button className="button-primary" disabled={loading} onClick={()=>setRefresh(x=>x+1)}>{loading?'Loading…':'↻ Refresh data'}</button></div>
         {error && <div className="error-banner" role="alert">{error}</div>}
         {lastUpdated && <p className="updated">Last refreshed: {lastUpdated.toLocaleString('en-IN')}</p>}
         {metrics ? <>

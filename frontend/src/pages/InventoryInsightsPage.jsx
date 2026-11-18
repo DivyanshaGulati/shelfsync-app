@@ -1,3 +1,5 @@
+import Icon from '../components/Icon.jsx'
+import PageTitle from '../components/PageTitle.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import InventoryInsight from '../components/InventoryInsight.jsx'
@@ -91,29 +93,21 @@ export default function InventoryInsightsPage() {
   if (!owner) return <Navigate to={token && user?.role === 'EMPLOYEE' ? '/checkout' : '/'} replace />
   const selected = history.items.find(report => report.id === selectedId)
   const busy = loading || Boolean(pending)
-  const stockMetrics = stock && [
-    ['Tracked items', stock.inventory_items],
-    ['Low stock', stock.low_stock_items],
-    ['Above reorder point', stock.inventory_items - stock.low_stock_items],
-  ]
-
   return (
     <div className="dashboard-shell">
       <Sidebar />
       <main className="dashboard-main">
         <header className="topbar">
-          <span><Link className="insights-back" to="/">Overview</Link> / <strong>AI Inventory Insights</strong></span>
+          <span>Operations / <strong>AI Inventory Insights</strong></span>
           <div className="topbar-actions">
             <span>{user.name} · OWNER</span>
             <button className="button-light" onClick={logout}>Sign out</button>
           </div>
         </header>
         <div className="content insights-page">
-          <section className="insights-hero" aria-labelledby="insights-heading">
-            <div>
-              <h1 id="insights-heading">AI Inventory Insights</h1>
-              <p>See what needs restocking and what’s already on the way.</p>
-            </div>
+          <section className="heading-row">
+            <PageTitle icon="/insights" title="AI Inventory Insights"
+              subtitle="See what needs restocking and what’s already on the way." />
             <button className="button-primary" onClick={generate} disabled={busy}>
               {pending === 'generate' ? 'Generating insight…' : 'Generate insight'}
             </button>
@@ -127,23 +121,21 @@ export default function InventoryInsightsPage() {
           {actionError && <p className="error-banner insights-feedback" role="alert">{actionError}</p>}
           {pending === 'generate' && <p className="insights-feedback" role="status">Reviewing stock and incoming orders…</p>}
 
-          {stockMetrics && (
-            <section className="insights-stock-section" aria-labelledby="insights-stock-heading">
-              <h2 id="insights-stock-heading">Current stock</h2>
-              <div className="insights-overview">
-                {stockMetrics.map(([label, value]) => (
-                  <div key={label} className={label === 'Low stock' && value > 0 ? 'insights-stat insights-stat-low' : 'insights-stat'}>
-                    <p>{label}</p>
-                    <strong>{numberFormat.format(value)}</strong>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+          {stock && <div className="insight-highlights">
+            <article className="amber"><h2 className="section-title"><Icon name="alert" /> {numberFormat.format(stock.low_stock_items)} Stock Alerts</h2>
+              <p>Items flagged by the current stock check.</p><Link to="/inventory">View inventory →</Link>
+            </article>
+            <article className="green"><h2 className="section-title"><Icon name="/vendors" /> Compare supplier prices</h2>
+              <p>Compare sample prices and delivery times.</p><Link to="/vendors">Explore quotes →</Link>
+            </article>
+            <article className="violet"><h2 className="section-title"><Icon name="/insights" /> Inventory guidance</h2>
+              <p>See which item to review first and why.</p><button type="button" onClick={() => document.getElementById('insight-report-heading')?.focus()}>Explore insight →</button>
+            </article>
+          </div>}
 
           <div className="insights-grid">
             <section className="panel insights-report" aria-labelledby="insight-report-heading">
-              <h2 id="insight-report-heading">{selected ? 'Saved insight' : 'Inventory report'}</h2>
+              <h2 id="insight-report-heading" tabIndex={-1} className="section-title"><Icon name="layers" /> {selected ? 'Saved insight' : 'Inventory report'}</h2>
               {selected ? (
                 <>
                   <p className="subtle insights-date">
@@ -157,7 +149,7 @@ export default function InventoryInsightsPage() {
             </section>
 
             <section className="panel insights-history" aria-labelledby="insights-history-heading">
-              <h2 id="insights-history-heading">Insight history</h2>
+              <h2 id="insights-history-heading" className="section-title"><Icon name="clock" /> Insight History</h2>
               {history.items.length > 0 ? (
                 <ul className="insights-history-list">
                   {history.items.map(report => (

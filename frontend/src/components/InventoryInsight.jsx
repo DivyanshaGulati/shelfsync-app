@@ -1,3 +1,4 @@
+import ProductImage from './ProductImage.jsx'
 import { Link } from 'react-router-dom'
 
 const formatQuantity = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 4 })
@@ -25,10 +26,11 @@ export default function InventoryInsight({ insight }) {
       {item ? (
         <div className="insight-priority">
           <div className="insight-priority-header">
-            <div>
-              <span className="insight-priority-label">Priority item</span>
+            <div className="insight-item">
+              <ProductImage sku={item.sku} name={item.name} />
+              <div><span className="insight-priority-label">Priority item</span>
               <h3>{item.name}</h3>
-              <small>{item.sku}</small>
+              <small>{item.sku}</small></div>
             </div>
             <span className="stock-pill low">Low Stock</span>
           </div>

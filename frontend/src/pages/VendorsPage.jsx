@@ -1,3 +1,6 @@
+import Icon from '../components/Icon.jsx'
+import PageTitle from '../components/PageTitle.jsx'
+import ProductIdentity from '../components/ProductIdentity.jsx'
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
@@ -46,29 +49,29 @@ export default function VendorsPage() {
       </header>
       <div className="content">
         <div className="heading-row">
-          <div><h1>Vendors</h1><p className="subtle">Sample prices and delivery times.</p></div>
+          <PageTitle icon="/vendors" title="Vendors" subtitle="Compare supplier prices and delivery times." />
           <button className="button-light" disabled={loading} onClick={() => setRefresh(count => count + 1)}>↻ Refresh</button>
         </div>
         {loading && <p className="subtle" role="status">Loading sample quotations…</p>}
         {error && <p className="error-banner" role="alert">{error}</p>}
         {catalogue && <>
-          <div className="panel-grid">
-            {catalogue.vendors.map(vendor => <section className="panel" key={vendor.id}>
+          <div className="vendor-grid">
+            {catalogue.vendors.map(vendor => <section className="panel vendor-card" key={vendor.id}><span className="icon-tile"><Icon name="/vendors" /></span><div>
               <h2>{vendor.name}</h2>
               <p>{vendor.email}</p>
-              <p className="subtle">{vendor.phone}</p>
+              <p className="subtle">{vendor.phone}</p></div>
             </section>)}
           </div>
           <section className="panel">
-            <div className="panel-heading"><div><h2>Mock quotations</h2></div></div>
+            <div className="panel-heading"><div><h2 className="section-title"><Icon name="quote" /> Mock Quotations</h2></div></div>
             {products.size === 0 ? <p className="empty">No inventory products to quote.</p> : <div className="table-scroll">
               <table>
                 <thead><tr><th scope="col">Product</th>{catalogue.vendors.map(vendor => <th scope="col" key={vendor.id}>{vendor.name}</th>)}</tr></thead>
                 <tbody>{[...products.values()].map(product => <tr key={product.inventory_item_id}>
-                  <th scope="row"><strong>{product.product_name}</strong><br/><small>{product.sku} · {product.unit}</small></th>
+                  <th scope="row"><ProductIdentity name={product.product_name} sku={product.sku} unit={product.unit} /></th>
                   {catalogue.vendors.map(vendor => {
                     const quote = product.quotes.get(vendor.id)
-                    return <td key={vendor.id}>{quote ? <><strong>{price.format(quote.unit_price)}</strong><br/>{Number(quote.delivery_days)} days</> : 'Quote unavailable'}</td>
+                    return <td key={vendor.id}>{quote ? <><strong>{price.format(quote.unit_price)}</strong> <span className="delivery-days">{Number(quote.delivery_days)} days</span></> : 'Quote unavailable'}</td>
                   })}
                 </tr>)}</tbody>
               </table>

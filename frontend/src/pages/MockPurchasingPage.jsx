@@ -1,3 +1,7 @@
+import Icon from '../components/Icon.jsx'
+import PageTitle from '../components/PageTitle.jsx'
+import StockSummary from '../components/StockSummary.jsx'
+import ProductImage from '../components/ProductImage.jsx'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { getAllPages, requestJSON } from '../lib/api.js'
@@ -117,37 +121,56 @@ export default function MockPurchasingPage({ approvalLimit }) {
       </header>
       <div className="content">
         <div className="heading-row">
-          <div>
-            <h1>Purchasing</h1>
-            <p className="subtle">Vendor emails are simulated. Orders over {currency.format(approvalLimit)} need Owner approval.</p>
-          </div>
+          <PageTitle icon="/purchasing" title="Purchasing"
+            subtitle={`Vendor emails are simulated. Orders over ${currency.format(approvalLimit)} need Owner approval.`} />
           <button className="button-light" disabled={disabled} onClick={() => { setError(''); setReload(count => count + 1) }}>↻ Refresh</button>
         </div>
         {error && <p className="error-banner" role="alert">{error}</p>}
         {notice && <p className="success-banner" role="status">{notice}</p>}
         {!data && !error && <p>Loading orders…</p>}
         {data?.orders.length === 0 && <p className="panel empty">No purchase requests yet.</p>}
+        {data && <StockSummary entries={[
+          ['Total orders', data.orders.length, '/purchasing', 'blue'],
+          ['Needs approval', data.orders.filter(order => order.status === 'PENDING_APPROVAL').length, 'clock', 'amber'],
+          ['In transit / delivered', data.orders.filter(order => ['IN_TRANSIT', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(order.status)).length, 'truck', 'green'],
+        ]} />}
         {data?.orders.map(order => <section className="panel purchase-detail" key={order.id}>
-          <div className="heading-row">
-            <div>
-              <h2>#{order.id} · {data.items.get(order.inventory_item_id)?.name || `Item ${order.inventory_item_id}`}</h2>
-              <p className="subtle">{order.ordered_quantity} units · {order.unit_price == null ? 'Unit price pending' : currency.format(order.unit_price) + ' per unit'} · {order.total_amount == null ? 'Total pending' : currency.format(order.total_amount) + ' total'}</p>
+          <div className="purchase-card">
+            <div className="purchase-product">
+              <ProductImage sku={data.items.get(order.inventory_item_id)?.sku} name={data.items.get(order.inventory_item_id)?.name} />
+              <div>
+                <h2>#{order.id} · {data.items.get(order.inventory_item_id)?.name || `Item ${order.inventory_item_id}`}</h2>
+                <p className="subtle">{order.ordered_quantity} units · {order.unit_price == null ? 'Unit price pending' : currency.format(order.unit_price) + ' per unit'}</p>
+                <p>{order.total_amount == null ? 'Total pending' : `Total: ${currency.format(order.total_amount)}`}</p>
+              </div>
             </div>
-            <span className="pill">{trackingLabel(order) || labels[order.status] || order.status}</span>
+            <div className="purchase-fact"><Icon name="/vendors" />{order.vendor_name || 'Vendor pending'}</div>
+            <div className="purchase-fact"><Icon name="truck" />{order.expected_delivery_days == null
+              ? 'Delivery estimate pending'
+              : `${Number(order.expected_delivery_days)} days`}</div>
+            <div className="purchase-card-end">
+              <span className="pill" data-status={order.tracking_status || order.status}>{trackingLabel(order) || labels[order.status] || order.status}</span>
+              <div className="purchase-actions">
+                {order.status === 'WAITING_FOR_QUOTES' && <button className="button-light" disabled={disabled} onClick={() => act(order, 'mock-process')}>Retry AI ordering</button>}
+                {order.mock_order && order.status === 'PENDING_APPROVAL' && <>
+                  <button className="button-primary" disabled={disabled} onClick={() => act(order, 'owner-decision', { action: 'APPROVED' }, 'Approve this order and record the mock email?')}>Approve order</button>
+                  <button className="button-light" disabled={disabled} onClick={() => act(order, 'owner-decision', { action: 'REJECTED' }, 'Reject this purchase order?')}>Reject order</button>
+                </>}
+                <OrderTracking order={order} disabled={disabled} showDetails={false}
+                  onTransit={() => act(order, 'mock-transit')}
+                  onDelivery={() => act(order, 'mock-delivery', undefined, 'Mark as delivered and restock the remaining units?')} />
+              </div>
+            </div>
           </div>
-          {order.ai_recommendation_reason && <p className="ai-reason">{order.ai_recommendation_reason}</p>}
-          {order.mock_order && <QuoteComparison order={order} token={token} />}
-          {order.mock_order && ['PLACED', 'IN_TRANSIT', 'RECEIVED'].includes(order.status) && <p className="subtle">Mock purchase email recorded</p>}
-          <div className="purchase-actions">
-            {order.status === 'WAITING_FOR_QUOTES' && <button className="button-light" disabled={disabled} onClick={() => act(order, 'mock-process')}>Retry AI ordering</button>}
-            {order.mock_order && order.status === 'PENDING_APPROVAL' && <>
-              <button className="button-primary" disabled={disabled} onClick={() => act(order, 'owner-decision', { action: 'APPROVED' }, 'Approve this order and record the mock email?')}>Approve order</button>
-              <button className="button-light" disabled={disabled} onClick={() => act(order, 'owner-decision', { action: 'REJECTED' }, 'Reject this purchase order?')}>Reject order</button>
-            </>}
-            <OrderTracking order={order} disabled={disabled}
-              onTransit={() => act(order, 'mock-transit')}
-              onDelivery={() => act(order, 'mock-delivery', undefined, 'Mark as delivered and restock the remaining units?')} />
-          </div>
+          {(order.ai_recommendation_reason || order.mock_order) && (
+            <details className="purchase-extra">
+              <summary>Order details</summary>
+              {order.ai_recommendation_reason && <p className="ai-reason">{order.ai_recommendation_reason}</p>}
+              {order.mock_order && <QuoteComparison order={order} token={token} />}
+              {order.mock_order && ['PLACED', 'IN_TRANSIT', 'RECEIVED'].includes(order.status)
+                && <p className="subtle">Mock purchase email recorded</p>}
+            </details>
+          )}
         </section>)}
       </div>
     </main>
