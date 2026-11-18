@@ -153,7 +153,24 @@ def list_items(
     return ItemList(items=list(rows), total=total, limit=limit, offset=offset)
 
 
-@router.post("/ai-insights", response_model=InventoryInsight)
+class InsightPriorityItem(BaseModel):
+    sku: str
+    name: str
+    on_hand: int
+    reserved_qty: int
+    available_stock: int
+    reorder_point: Decimal
+    on_order: int
+    order_status: str | None
+
+
+class DashboardInventoryInsight(InventoryInsight):
+    inventory_items: int
+    low_stock_items: int
+    priority_item: InsightPriorityItem | None
+
+
+@router.post("/ai-insights", response_model=DashboardInventoryInsight)
 def inventory_ai_insights(
     db: Annotated[Session, Depends(get_db)],
     _owner: Annotated[User, Depends(require_roles("OWNER"))],
@@ -175,11 +192,24 @@ def inventory_ai_insights(
     snapshot = build_stock_snapshot(items, order_lines)
     db.rollback()  # Release the read transaction before the external call.
     try:
-        return explain_inventory(snapshot)
+        insight = explain_inventory(snapshot)
     except AgentUnavailable as exc:
         raise HTTPException(status_code=503, detail={"ai_status": "UNAVAILABLE", "message": str(exc)}) from exc
     except AgentInvalidResponse as exc:
         raise HTTPException(status_code=409, detail={"ai_status": "INVALID_INSIGHT", "message": str(exc)}) from exc
+
+    candidates = snapshot["low_stock_candidates"]
+    priority = next(
+        (item for item in candidates if item["sku"] == insight.priority_sku),
+        candidates[0] if candidates else None,
+    )
+    return DashboardInventoryInsight(
+        summary=insight.summary,
+        priority_sku=priority["sku"] if priority is not None else None,
+        inventory_items=snapshot["inventory_items"],
+        low_stock_items=snapshot["low_stock_items"],
+        priority_item=InsightPriorityItem.model_validate(priority) if priority is not None else None,
+    )
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

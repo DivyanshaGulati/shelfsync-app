@@ -6,6 +6,7 @@ import { ApiError, getAllPages, requestJSON } from '../lib/api'
 import { COMPLETED_PURCHASE_STATUSES, inventoryRows } from '../lib/purchaseStatus.js'
 import { useStockStatusRefresh } from '../lib/useStockStatusRefresh.js'
 import Sidebar from '../components/Sidebar.jsx'
+import InventoryInsight from '../components/InventoryInsight.jsx'
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 const dayKey = (value) => new Date(value).toISOString().slice(0, 10)
@@ -110,16 +111,13 @@ export default function OwnerDashboard() {
           <div className="panel-grid"><section className="panel"><div className="panel-heading"><div><h2>Consumption trend</h2><p>Checkout quantities · last 14 days</p></div></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><LineChart data={metrics.chart} margin={{ top: 12, right: 18, left: -18, bottom: 0 }}><CartesianGrid strokeDasharray="3 4" stroke="#e9eef5"/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis allowDecimals={false} tick={{fontSize:11}}/><Tooltip/><Legend/><Line name="Units checked out" type="monotone" dataKey="consumed" stroke="#2563eb" strokeWidth={3} dot={false}/></LineChart></ResponsiveContainer></div></section>
           <section className="panel"><div className="panel-heading"><div><h2>Purchase pipeline</h2></div></div><div className="pipeline"><Pipeline label="Waiting for quotes" value={metrics.waiting.length}/><Pipeline label="Pending approval" value={metrics.pending.length}/><Pipeline label="In transit" value={metrics.inTransit.length}/><Pipeline label="Completed" value={metrics.completed.length}/></div></section></div>
           <div className="panel-grid"><section className="panel"><div className="panel-heading"><div><h2>Needs attention</h2></div><span className="pill">{metrics.lowStock.length} items</span></div><div className="table-scroll"><table><thead><tr><th>Item</th><th>On hand</th><th>On order</th><th>Reorder point</th></tr></thead><tbody>{metrics.lowStock.slice(0,8).map(item=><tr key={item.id}><td><strong>{item.name}</strong><small>{item.sku}</small></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{Number(item.reorder_point).toFixed(1)}</td></tr>)}{metrics.lowStock.length===0&&<tr><td colSpan="4" className="empty">No low-stock items</td></tr>}</tbody></table></div></section>
-          <section className="panel">
+          <section className="panel inventory-insight-panel">
             <div className="panel-heading"><div><h2>AI inventory insights</h2></div></div>
             <button className="button-light" disabled={insightLoading} onClick={generateInsight}>
               {insightLoading ? 'Generating inventory insight…' : 'Generate inventory insight'}
             </button>
             {insightError && <p className="error" role="alert">{insightError}</p>}
-            {insight && <div className="ai-reason" role="status">
-              <p>{insight.summary}</p>
-              {insight.priority_sku && <p>Priority SKU <strong>{insight.priority_sku}</strong></p>}
-            </div>}
+            {insight && <InventoryInsight insight={insight} />}
           </section></div>
         </> : <div className="panel loading-panel">{loading ? 'Loading dashboard…' : 'No data available yet.'}</div>}
       </div>}

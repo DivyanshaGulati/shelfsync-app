@@ -44,7 +44,16 @@ def test_owner_dashboard_insight_uses_groq_with_claude_blank(setup, monkeypatch)
     assert not requests
     insight = client.post("/api/inventory/ai-insights", headers=owner)
     assert insight.status_code == 200, insight.text
-    assert insight.json()["priority_sku"] == sku
+    assert insight.json() == {
+        "summary": "Review the item below its reorder point.",
+        "priority_sku": sku,
+        "inventory_items": 1,
+        "low_stock_items": 1,
+        "priority_item": {
+            "sku": sku, "name": name, "on_hand": 1, "reserved_qty": 0, "available_stock": 1,
+            "reorder_point": "3.0000", "on_order": 0, "order_status": None,
+        },
+    }
     assert len(requests) == 1
     with factory() as db:
         assert db.get(PurchaseOrder, order_id).status == "WAITING_FOR_QUOTES"
@@ -95,6 +104,7 @@ def insight(setup, monkeypatch):
     def run():
         response = client.post("/api/inventory/ai-insights", headers=owner)
         assert response.status_code == 200, response.text
+        seen["result"] = response.json()
         return seen["snapshot"]
 
     run.seen = seen
@@ -134,6 +144,7 @@ def test_item_at_or_below_rop_stays_low_stock_while_an_order_is_on_the_way(
         "sku": sku, "name": name, "on_hand": on_hand, "reserved_qty": 0, "available_stock": on_hand,
         "reorder_point": "3.0000", "on_order": on_order, "order_status": shown_status,
     }]
+    assert insight.seen["result"]["priority_item"] == snapshot["low_stock_candidates"][0]
 
 
 def test_item_equal_to_rop_is_low_and_delivery_above_rop_makes_it_healthy(setup, insight):
@@ -161,6 +172,7 @@ def test_healthy_item_with_an_open_order_is_not_reported_low(setup, insight):
     create_request(setup)
     set_stock_and_order(factory, on_hand=10, rop=3)
     assert insight()["low_stock_items"] == 0
+    assert insight.seen["result"]["priority_item"] is None
 
 
 def test_reserved_units_are_not_available_stock(setup, insight):

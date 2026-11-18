@@ -252,6 +252,36 @@ td.empty { padding: 24px 12px; }
 .ai-reason { border-left: 3px solid #7897e5; border-radius: 0 9px 9px 0; padding: 11px 14px; margin-top: 15px; background: #f0f4ff; color: #30486d; }
 .ai-reason p + p { margin-top: 5px; }
 
+.inventory-insight-panel .button-light { background: var(--accent-soft); border-color: #b9ccf5; color: #234888; }
+.inventory-insight-panel .button-light:hover:not(:disabled) { background: #dde8ff; }
+.inventory-insight-panel > .error { margin-top: 12px; }
+.inventory-insight {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 15px;
+  border: 1px solid #dce7fb;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f3f7ff, #fafcff);
+  overflow-wrap: anywhere;
+}
+.insight-headline { color: #204785; font-size: 16px; font-weight: 750; }
+.insight-headline-low { color: #87440b; }
+.insight-summary { color: #334762; font-size: 14px; line-height: 1.55; white-space: pre-line; }
+.insight-priority { padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+.insight-priority-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 12px; }
+.insight-priority-label, .insight-priority small, .insight-detail { color: var(--muted); font-size: 12px; }
+.insight-priority h3 { color: var(--ink); font-size: 16px; font-weight: 750; line-height: 1.35; }
+.insight-stock { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 12px 0 0; }
+.insight-stock > div { padding: 7px; border-radius: 8px; background: #f2f5fc; }
+.insight-stock dt { color: var(--muted); font-size: 12px; }
+.insight-stock dd { margin: 2px 0 0; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.insight-priority .insight-detail { margin-top: 7px; }
+.insight-next { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 12px; margin-top: 11px; font-size: 13px; }
+.insight-next p { color: var(--muted); }
+.insight-next a { color: var(--accent); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.insight-next a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
 .checkout-panel { max-width: 760px; }
 .checkout-form { display: grid; gap: 18px; margin-top: 20px; }
 .checkout-form button { justify-self: start; }
