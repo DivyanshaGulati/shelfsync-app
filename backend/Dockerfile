@@ -13,6 +13,7 @@ COPY backend/alembic.ini ./alembic.ini
 COPY backend/alembic ./alembic
 COPY backend/app ./app
 
+RUN chmod -R a+rX /app/app /app/alembic && chmod a+r /app/alembic.ini
 USER shelfsync
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
