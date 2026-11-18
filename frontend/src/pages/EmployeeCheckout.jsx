@@ -11,8 +11,8 @@ import Sidebar from '../components/Sidebar.jsx'
 
 // The key belongs to a single immutable checkout attempt, not a button click.
 // Keep it on transport failures so retries cannot deduct stock twice.
-function newKey() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `checkout-${crypto.randomUUID()}`
+function checkoutUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
   throw new Error('Secure checkout requires a browser with crypto.randomUUID support.')
 }
 function describeError(error) {
@@ -67,7 +67,8 @@ export default function EmployeeCheckout() {
       return
     }
     try {
-      const line = { item, quantity: count, note: note.trim() || null, key: newKey() }
+      const group = cart[0]?.group ?? checkoutUUID()
+      const line = { item, quantity: count, note: note.trim() || null, group, key: `checkout-cart-${group}-${checkoutUUID()}` }
       setCart(lines => [...lines, line])
       setSelected('')
       setQuantity('1')

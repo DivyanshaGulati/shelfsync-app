@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import require_roles
 from app.core.claude_agent import AgentInvalidResponse, AgentUnavailable, InventoryInsight, explain_inventory
+from app.core.checkout_trends import checkout_growth_tip
 from app.core.forecast import ACTIVE_ON_ORDER_STATUSES, calculate_forecast
 from app.core.mock_purchasing import enabled as mock_purchasing_enabled, process_in_background
 from app.core.replenishment import create_purchase_request
@@ -190,6 +191,7 @@ class DashboardInventoryInsight(InventoryInsight):
     inventory_items: int
     low_stock_items: int
     priority_item: InsightPriorityItem | None
+    priority_items: list[InsightPriorityItem] | None = None
 
 
 class SavedInventoryInsight(DashboardInventoryInsight):
@@ -205,6 +207,7 @@ class InsightHistory(BaseModel):
 class InsightStockOverview(BaseModel):
     inventory_items: int
     low_stock_items: int
+    priority_items: list[InsightPriorityItem]
 
 
 def _stock_snapshot(db: Session) -> dict:
@@ -238,7 +241,16 @@ def inventory_insight_stock_overview(
     db: Annotated[Session, Depends(get_db)],
     _owner: Annotated[User, Depends(require_roles("OWNER"))],
 ):
-    return _stock_snapshot(db)
+    snapshot = _stock_snapshot(db)
+    return {**snapshot, "priority_items": snapshot["low_stock_candidates"]}
+
+
+@router.get("/ai-insights/growth-tip")
+def inventory_growth_tip(
+    db: Annotated[Session, Depends(get_db)],
+    _owner: Annotated[User, Depends(require_roles("OWNER"))],
+):
+    return checkout_growth_tip(db)
 
 
 @router.get("/ai-insights", response_model=InsightHistory)
@@ -264,11 +276,18 @@ def inventory_ai_insights(
     owner: Annotated[User, Depends(require_roles("OWNER"))],
 ):
     owner_id = owner.id
-    snapshot = _stock_snapshot(db)
-    captured_at = datetime.now(timezone.utc)
-    db.rollback()  # Release the read transaction before the external call.
     try:
-        insight = explain_inventory(snapshot)
+        snapshot = _stock_snapshot(db)
+        for _ in range(2):
+            captured_at = datetime.now(timezone.utc)
+            db.rollback()
+            insight = explain_inventory(snapshot)
+            current = _stock_snapshot(db)
+            if current == snapshot:
+                break
+            snapshot = current
+        else:
+            raise HTTPException(status_code=409, detail="Stock changed during generation. Generate the insight again.")
     except AgentUnavailable as exc:
         raise HTTPException(status_code=503, detail={"ai_status": "UNAVAILABLE", "message": str(exc)}) from exc
     except AgentInvalidResponse as exc:
@@ -285,6 +304,7 @@ def inventory_ai_insights(
         inventory_items=snapshot["inventory_items"],
         low_stock_items=snapshot["low_stock_items"],
         priority_item=InsightPriorityItem.model_validate(priority) if priority is not None else None,
+        priority_items=sorted(candidates, key=lambda item: item != priority),
     )
     report = InventoryInsightReport(
         owner_id=owner_id, created_at=captured_at, payload=result.model_dump(mode="json")

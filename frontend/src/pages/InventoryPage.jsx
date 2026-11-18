@@ -4,7 +4,7 @@ import StockSummary from '../components/StockSummary.jsx'
 import ProductIdentity from '../components/ProductIdentity.jsx'
 import ProductImage from '../components/ProductImage.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api.js'
 import { makeItemThumbnail } from '../lib/itemThumbnail.js'
@@ -18,6 +18,8 @@ const rupees = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'IN
 
 export default function InventoryPage() {
   const { token, user, logout } = useAuth()
+  const [filters, setFilters] = useSearchParams()
+  const lowOnly = filters.get('stock') === 'low'
   const [items, setItems] = useState([])
   const [orders, setOrders] = useState([])
   const [search, setSearch] = useState('')
@@ -50,9 +52,10 @@ export default function InventoryPage() {
   useStockStatusRefresh(token, user?.role === 'OWNER' && !loading, updateStock, logout)
   const rows = useMemo(() => inventoryRows(items, orders), [items, orders])
   const filtered = useMemo(() => rows.filter(item =>
+    (!lowOnly || item.low) &&
     (category === 'All categories' || item.category.toLowerCase() === category.toLowerCase()) &&
     (`${item.name} ${item.sku}`.toLowerCase().includes(search.trim().toLowerCase()))
-  ), [rows, category, search])
+  ), [rows, category, search, lowOnly])
   if (!token || user?.role !== 'OWNER') return <Navigate to="/" replace />
   const thumbnail = photoChange === undefined ? items.find(item => item.id === editing)?.thumbnail : photoChange
   function openForm(item) {
@@ -100,7 +103,12 @@ export default function InventoryPage() {
   return <div className="dashboard-shell">
     <Sidebar />
     <main className="dashboard-main"><header className="topbar"><span>Operations / <strong>Inventory</strong></span><div className="topbar-actions"><span>{accountLabel(user)}</span><button className="button-light" onClick={logout}>Sign out</button></div></header>
-    <div className="content"><div className="heading-row"><PageTitle icon="/inventory" title="Inventory Management" subtitle="View, search and manage your inventory items." /><div className="inventory-actions"><button className="button-light" disabled={loading} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button><button className="button-primary" onClick={() => openForm(null)}>+ Add Item</button></div></div>
+    <div className="content"><div className="heading-row"><PageTitle icon="/inventory" title="Inventory Management" subtitle="View, search and manage your inventory items." /><div className="inventory-actions"><button type="button" className="button-light" aria-pressed={lowOnly} onClick={() => setFilters(current => {
+      const next = new URLSearchParams(current)
+      if (lowOnly) next.delete('stock')
+      else next.set('stock', 'low')
+      return next
+    })}>{lowOnly ? 'Show All Stock' : 'Low Stock Only'}</button><button className="button-light" disabled={loading} onClick={() => setRefresh(x => x + 1)}>↻ Refresh</button><button className="button-primary" onClick={() => openForm(null)}>+ Add Item</button></div></div>
     {notice && <p className="success-banner" role="status">{notice}</p>}{error && <p className="error-banner" role="alert">{error}</p>}
     {!loading && !error && <StockSummary entries={[
       ['Total items', rows.length, '/inventory', 'blue'],

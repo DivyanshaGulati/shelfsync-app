@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError, ConfigDict
@@ -504,6 +504,31 @@ class InventoryInsight(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
     summary: str = Field(min_length=10, max_length=600)
     priority_sku: str | None = None
+
+
+class CheckoutPairAction(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    action: Literal['display_together', 'test_bundle']
+
+
+def suggest_checkout_pair_action(*, together: int, total: int) -> str:
+    response = call_provider_messages({
+        'model': settings.claude_model.strip(),
+        'max_tokens': 256,
+        'system': (
+            'Choose a low-risk merchandising experiment for a small store from recorded cart counts. '
+            'Use display_together for a low-effort shelf change, or test_bundle for a strongly recurring pair. '
+            'Return only JSON with an action field. These counts are not sales revenue or proof of sales lift.'
+        ),
+        'messages': [{'role': 'user', 'content': to_json({'paired_checkouts': together, 'total_checkouts': total})}],
+        'tools': [],
+    })
+    if response.get('stop_reason') != 'end_turn':
+        raise AgentInvalidResponse('AI checkout tip did not finish')
+    try:
+        return CheckoutPairAction.model_validate_json(_json_text(response['content'])).action
+    except ValidationError as exc:
+        raise AgentInvalidResponse('AI returned an invalid checkout tip') from exc
 
 
 def explain_inventory(snapshot: dict) -> InventoryInsight:

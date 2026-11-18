@@ -9,6 +9,7 @@ import { useAuth } from '../lib/AuthContext.jsx'
 import { requestJSON } from '../lib/api.js'
 
 const insightsUrl = '/api/inventory/ai-insights'
+const historyPageSize = 3
 const emptyHistory = { items: [], next_before_id: null }
 const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'medium' })
 const numberFormat = new Intl.NumberFormat('en-IN')
@@ -22,6 +23,8 @@ export default function InventoryInsightsPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [tip, setTip] = useState(null)
+  const [tipOpen, setTipOpen] = useState(false)
   const [pending, setPending] = useState('')
   const [reload, setReload] = useState(0)
   const inFlight = useRef(null)
@@ -34,12 +37,12 @@ export default function InventoryInsightsPage() {
     setLoadError('')
     Promise.all([
       requestJSON(`${insightsUrl}/snapshot`, options),
-      requestJSON(insightsUrl, options),
+      requestJSON(`${insightsUrl}?limit=${historyPageSize}`, options),
     ]).then(([snapshot, reports]) => {
       if (controller.signal.aborted) return
       setStock(snapshot)
       setHistory(reports)
-      setSelectedId(reports.items[0]?.id ?? null)
+      setSelectedId(null)
     }).catch(error => {
       if (controller.signal.aborted) return
       if (error.status === 401) logout()
@@ -64,9 +67,12 @@ export default function InventoryInsightsPage() {
     } catch (error) {
       if (controller.signal.aborted) return
       if (error.status === 401) logout()
-      else setActionError(action === 'generate'
-        ? 'Could not generate an insight right now. Please try again.'
-        : 'Could not load earlier insights. Please try again.')
+      else setActionError({
+        generate: error.message === 'Stock changed during generation. Generate the insight again.'
+          ? error.message : 'Could not generate an insight. Try again.',
+        history: 'Could not load earlier insights. Try again.',
+        tip: 'Could not load the growth tip. Try again.',
+      }[action])
     } finally {
       if (inFlight.current === controller) inFlight.current = null
       if (!controller.signal.aborted) setPending('')
@@ -79,20 +85,36 @@ export default function InventoryInsightsPage() {
       if (options.signal.aborted) return
       setHistory(current => ({ ...current, items: [report, ...current.items] }))
       setSelectedId(report.id)
-      setStock({ inventory_items: report.inventory_items, low_stock_items: report.low_stock_items })
+      setStock(report)
     })
   }
 
   function loadEarlier() {
     run('history', async options => {
-      const older = await requestJSON(`${insightsUrl}?before_id=${history.next_before_id}`, options)
+      const older = await requestJSON(`${insightsUrl}?before_id=${history.next_before_id}&limit=${historyPageSize}`, options)
       if (options.signal.aborted) return
       setHistory(current => ({ ...older, items: [...current.items, ...older.items] }))
     })
   }
 
+  function exploreTip() {
+    if (tipOpen) {
+      setTipOpen(false)
+      return
+    }
+    run('tip', async options => {
+      const result = await requestJSON(`${insightsUrl}/growth-tip`, options)
+      if (options.signal.aborted) return
+      setTip(result.tip)
+      setTipOpen(true)
+    })
+  }
+
   if (!owner) return <Navigate to={token && user?.role === 'EMPLOYEE' ? '/checkout' : '/'} replace />
   const selected = history.items.find(report => report.id === selectedId)
+  const items = selected
+    ? (selected.priority_items ?? (selected.priority_item ? [selected.priority_item] : []))
+    : (stock?.priority_items ?? [])
   const busy = loading || Boolean(pending)
   return (
     <div className="dashboard-shell">
@@ -107,10 +129,10 @@ export default function InventoryInsightsPage() {
         </header>
         <div className="content insights-page">
           <section className="heading-row">
-            <PageTitle icon="/insights" title="AI Inventory Insights"
-              subtitle="See what needs restocking and what’s already on the way." />
-            <button className="button-primary" onClick={generate} disabled={busy}>
-              {pending === 'generate' ? 'Generating insight…' : 'Generate insight'}
+            <PageTitle icon="/insights" title="AI Inventory Insights" />
+            <button className="button-primary insights-generate" onClick={generate} disabled={busy}>
+              <Icon name="/insights" />
+              {pending === 'generate' ? 'Generating…' : 'Generate Insight'}
             </button>
           </section>
 
@@ -120,45 +142,50 @@ export default function InventoryInsightsPage() {
             <button className="button-light" disabled={busy} onClick={() => setReload(value => value + 1)}>Try again</button>
           </div>}
           {actionError && <p className="error-banner insights-feedback" role="alert">{actionError}</p>}
-          {pending === 'generate' && <p className="insights-feedback" role="status">Reviewing stock and incoming orders…</p>}
-
           {stock && <div className="insight-highlights">
-            <article className="amber"><h2 className="section-title"><Icon name="alert" /> {numberFormat.format(stock.low_stock_items)} Stock Alerts</h2>
-              <p>Items flagged by the current stock check.</p><Link to="/inventory">View inventory →</Link>
+            <article className="amber">
+              <h2 className="section-title"><Icon name="alert" /> {numberFormat.format(stock.low_stock_items)} Stock {stock.low_stock_items === 1 ? 'Alert' : 'Alerts'}</h2>
+              <Link to="/inventory?stock=low">View Items <span aria-hidden="true">→</span></Link>
             </article>
-            <article className="green"><h2 className="section-title"><Icon name="/vendors" /> Compare supplier prices</h2>
-              <p>Compare sample prices and delivery times.</p><Link to="/vendors">Explore quotes →</Link>
+            <article className="green">
+              <h2 className="section-title"><Icon name="savings" /> Smart Savings</h2>
+              <Link to="/vendors">Explore Savings <span aria-hidden="true">→</span></Link>
             </article>
-            <article className="violet"><h2 className="section-title"><Icon name="/insights" /> Inventory guidance</h2>
-              <p>See which item to review first and why.</p><button type="button" onClick={() => document.getElementById('insight-report-heading')?.focus()}>Explore insight →</button>
+            <article className="violet">
+              <h2 className="section-title"><Icon name="growth" /> Business Growth Tip</h2>
+              <button type="button" disabled={busy} onClick={exploreTip} aria-expanded={tipOpen}>
+                {pending === 'tip' ? 'Finding a tip…' : tipOpen ? 'Hide Tip' : 'Explore Tip'} <span aria-hidden="true">→</span>
+              </button>
             </article>
           </div>}
 
+          {tipOpen && (
+            <section className="panel insights-tip" role="status">
+              <h2 className="section-title"><Icon name="growth" /> Business Growth Tip</h2>
+              {tip ? <>
+                <p><strong>{tip.products.join(' + ')}</strong> appeared together in {tip.together} of {tip.total} tracked checkouts ({tip.share}%) in the last {tip.window_days} days.</p>
+                <p>{tip.action === 'test_bundle' ? 'Try offering these items as a bundle and track how often they’re checked out together.' : 'Display these items together and track how often they’re checked out together.'}</p>
+              </> : <p>Not enough checkout history yet. Check back after more items are checked out together.</p>}
+            </section>
+          )}
+
           <div className="insights-grid">
             <section className="panel insights-report" aria-labelledby="insight-report-heading">
-              <h2 id="insight-report-heading" tabIndex={-1} className="section-title"><Icon name="layers" /> {selected ? 'Saved insight' : 'Inventory report'}</h2>
-              {selected ? (
-                <>
-                  <p className="subtle insights-date">
-                    Stock as of <time dateTime={selected.created_at}>{dateFormat.format(new Date(selected.created_at))}</time>
-                  </p>
-                  <InventoryInsight insight={selected} />
-                </>
-              ) : !loading && !loadError && (
-                <p className="insights-empty">Generate an insight to see which item to review first and why.</p>
-              )}
+              <h2 id="insight-report-heading" className="section-title"><span className="icon-tile"><Icon name="list" /></span> Priority Items ({numberFormat.format(items.length)})</h2>
+              {(selected || stock) && <InventoryInsight items={items} insight={selected} />}
             </section>
 
             <section className="panel insights-history" aria-labelledby="insights-history-heading">
-              <h2 id="insights-history-heading" className="section-title"><Icon name="clock" /> Insight History</h2>
+              <h2 id="insights-history-heading" className="section-title"><span className="icon-tile"><Icon name="clock" /></span> Insight History</h2>
               {history.items.length > 0 ? (
                 <ul className="insights-history-list">
                   {history.items.map(report => (
                     <li key={report.id}>
                       <button type="button" className="insights-history-item" aria-pressed={report.id === selectedId}
-                        onClick={() => setSelectedId(report.id)}>
+                        onClick={() => setSelectedId(current => current === report.id ? null : report.id)}>
+                        <Icon name="calendar" />
                         <time dateTime={report.created_at}>{dateFormat.format(new Date(report.created_at))}</time>
-                        <span>{report.low_stock_items === 0 ? 'No low-stock items' : `${numberFormat.format(report.low_stock_items)} low-stock`}</span>
+                        <span aria-hidden="true">›</span>
                       </button>
                     </li>
                   ))}

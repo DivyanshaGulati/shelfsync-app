@@ -1,5 +1,6 @@
 import json
-from datetime import datetime, timezone
+from uuid import uuid4
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -8,7 +9,7 @@ from sqlalchemy import select
 from app.core import claude_agent
 from app.core.config import settings
 from app.core.security import create_access_token
-from app.db.models import InventoryItem, OrderItem, PurchaseOrder, User
+from app.db.models import InventoryItem, OrderItem, PurchaseOrder, Transaction, User
 from test_groq_provider import fake_groq
 from test_quotation_collection import create_request, setup
 
@@ -48,6 +49,7 @@ def test_owner_dashboard_insight_uses_groq_with_claude_blank(setup, monkeypatch)
     saved = insight.json()
     assert saved.pop("id") > 0
     assert datetime.fromisoformat(saved.pop("created_at")).tzinfo is not None
+    assert saved.pop("priority_items") == [saved["priority_item"]]
     assert saved == {
         "summary": "Review the item below its reorder point.",
         "priority_sku": sku,
@@ -99,13 +101,14 @@ def test_saved_history_is_owner_scoped_paginated_and_keeps_original_stock(setup,
 
     assert client.get(url, headers=employee).status_code == 403
     assert client.get(f"{url}/snapshot", headers=employee).status_code == 403
-    assert client.get(f"{url}/snapshot", headers=owner).json() == {"inventory_items": 1, "low_stock_items": 1}
+    snapshot = client.get(f"{url}/snapshot", headers=owner).json()
+    assert snapshot["low_stock_items"] == len(snapshot["priority_items"]) == 1
     first = client.post(url, headers=owner).json()
     assert first["priority_item"]["on_hand"] == 4
     with factory.begin() as db:
         db.get(InventoryItem, 1).on_hand = 10
 
-    assert client.get(f"{url}/snapshot", headers=owner).json() == {"inventory_items": 1, "low_stock_items": 0}
+    assert client.get(f"{url}/snapshot", headers=owner).json() == {"inventory_items": 1, "low_stock_items": 0, "priority_items": []}
     second = client.post(url, headers=owner).json()
     assert second["priority_item"] is None
     assert second["id"] > first["id"]
@@ -229,3 +232,60 @@ def test_insight_prompt_tells_the_ai_that_on_order_stock_is_not_available(setup,
     system = insight.seen["system"]
     assert "never makes an item healthy" in system
     assert "product name, on hand, ROP, on order" in system
+
+
+def test_generate_rechecks_stock_changed_by_checkout_during_ai_call(setup, monkeypatch):
+    client, _, owner, employee = setup
+    calls = []
+
+    def explain(snapshot):
+        calls.append(snapshot["low_stock_items"])
+        if len(calls) == 1:
+            checkout = client.post("/api/checkout", headers=employee, json={
+                "inventory_item_id": 1, "quantity": 4, "idempotency_key": "checkout-during-insight",
+            })
+            assert checkout.status_code == 201, checkout.text
+        return claude_agent.InventoryInsight(summary="Review current stock levels.")
+
+    monkeypatch.setattr("app.api.inventory.explain_inventory", explain)
+    url = "/api/inventory/ai-insights"
+    response = client.post(url, headers=owner)
+    assert response.status_code == 200, response.text
+    assert calls == [0, 1]
+    assert response.json()["priority_items"][0]["on_hand"] == 0
+    assert len(client.get(url, headers=owner).json()["items"]) == 1
+
+
+def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, monkeypatch):
+    client, factory, owner, employee = setup
+    url = "/api/inventory/ai-insights/growth-tip"
+    assert client.get(url, headers=employee).status_code == 403
+    assert client.get(url, headers=owner).json() == {"tip": None}
+
+    with factory.begin() as db:
+        other = InventoryItem(name="Pipe", sku="TEST-PIPE", category="Plumbing", unit="pcs")
+        db.add(other)
+        db.flush()
+        for index in range(10):
+            group = uuid4()
+            item_ids = [1, 1, other.id] if index < 3 else [1]
+            for item_id in item_ids:
+                db.add(Transaction(user_id=2, inventory_item_id=item_id, transaction_type="CHECKOUT",
+                                   quantity=1, idempotency_key=f"checkout-cart-{group}-{uuid4()}"))
+        db.add(Transaction(user_id=2, inventory_item_id=other.id, transaction_type="CHECKOUT",
+                           quantity=1, idempotency_key="legacy-checkout"))
+        db.add(Transaction(user_id=2, inventory_item_id=other.id, transaction_type="CHECKOUT",
+                           quantity=1, idempotency_key=f"checkout-cart-{uuid4()}-{uuid4()}",
+                           created_at=datetime.now(timezone.utc) - timedelta(days=31)))
+
+    def choose(*, together, total):
+        assert (together, total) == (3, 10)
+        return "test_bundle"
+
+    monkeypatch.setattr("app.core.checkout_trends.suggest_checkout_pair_action", choose)
+    response = client.get(url, headers=owner)
+    assert response.status_code == 200, response.text
+    assert response.json()["tip"] == {
+        "products": ["Teflon Tape", "Pipe"], "together": 3, "total": 10, "share": 30,
+        "window_days": 30, "action": "test_bundle",
+    }

@@ -1,55 +1,39 @@
-import ProductImage from './ProductImage.jsx'
+import ProductIdentity from './ProductIdentity.jsx'
 import { Link } from 'react-router-dom'
 
-const formatQuantity = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 4 })
 const orderLabels = {
-  PLACED: 'Order placed',
-  IN_TRANSIT: 'In transit',
-  PARTIALLY_RECEIVED: 'Partially received',
+  PLACED: 'Order Placed',
+  IN_TRANSIT: 'In Transit',
+  PARTIALLY_RECEIVED: 'Partially Received',
 }
 
-export default function InventoryInsight({ insight }) {
-  const { inventory_items: total, low_stock_items: lowStock, priority_item: item } = insight
-  const headline = total === 0 ? 'No inventory items yet'
-    : lowStock === 0 ? 'No low-stock items'
-    : lowStock === 1 ? '1 item needs attention'
-    : lowStock > 1 ? `${formatQuantity.format(lowStock)} items need attention` : null
-
+export default function InventoryInsight({ items, insight }) {
   return (
-    <div className="inventory-insight" role="status">
-      {headline && (
-        <p className={lowStock > 0 ? 'insight-headline insight-headline-low' : 'insight-headline'}>
-          {headline}
-        </p>
-      )}
-      <p className="insight-summary">{insight.summary}</p>
-      {item ? (
-        <div className="insight-priority">
-          <div className="insight-priority-header">
-            <div className="insight-item">
-              <ProductImage sku={item.sku} name={item.name} />
-              <div><span className="insight-priority-label">Priority item</span>
-              <h3>{item.name}</h3>
-              <small>{item.sku}</small></div>
-            </div>
-            <span className="stock-pill low">Low Stock</span>
-          </div>
-          <dl className="insight-stock">
-            <div><dt>On hand</dt><dd>{formatQuantity.format(item.on_hand)}</dd></div>
-            <div><dt>Reorder point</dt><dd>{formatQuantity.format(item.reorder_point)}</dd></div>
-            <div><dt>On order</dt><dd>{formatQuantity.format(item.on_order)}</dd></div>
-          </dl>
-          {item.reserved_qty > 0 && (
-            <p className="insight-detail">
-              {formatQuantity.format(item.reserved_qty)} reserved · {formatQuantity.format(item.available_stock)} available
-            </p>
-          )}
-          <div className="insight-next">
-            <p>{orderLabels[item.order_status] || 'No stock on order'}</p>
-            <Link to="/purchasing">{item.on_order > 0 ? 'Track the order' : 'Check purchase requests'}</Link>
-          </div>
+    <>
+      {items.length > 0 ? (
+        <div className="table-scroll insights-table">
+          <table aria-label="Priority items">
+            <thead><tr><th scope="col">Item / SKU</th><th scope="col">Low Stock</th><th scope="col">Status</th></tr></thead>
+            <tbody>{items.map(item => (
+              <tr key={item.sku}>
+                <td><ProductIdentity name={item.name} sku={item.sku} /></td>
+                <td><span className="stock-pill low">Low Stock</span></td>
+                <td>
+                  <Link className={item.on_order > 0 ? 'stock-pill insights-incoming' : 'stock-pill low'} to="/purchasing">
+                    {orderLabels[item.order_status] || (item.on_order > 0 ? 'On Order' : 'Action Needed')}
+                  </Link>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
         </div>
-      ) : insight.priority_sku && <p className="insight-detail">Priority SKU <strong>{insight.priority_sku}</strong></p>}
-    </div>
+      ) : <p className="insights-empty">No low-stock items.</p>}
+      {insight && (
+        <details className="insights-summary">
+          <summary>AI summary</summary>
+          <p>{insight.summary}</p>
+        </details>
+      )}
+    </>
   )
 }
