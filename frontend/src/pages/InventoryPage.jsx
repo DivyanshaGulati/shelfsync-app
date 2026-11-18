@@ -2,10 +2,12 @@ import { accountLabel } from '../lib/accountLabel.js'
 import PageTitle from '../components/PageTitle.jsx'
 import StockSummary from '../components/StockSummary.jsx'
 import ProductIdentity from '../components/ProductIdentity.jsx'
+import ProductImage from '../components/ProductImage.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api.js'
+import { makeItemThumbnail } from '../lib/itemThumbnail.js'
 import { inventoryRows } from '../lib/purchaseStatus.js'
 import { useStockStatusRefresh } from '../lib/useStockStatusRefresh.js'
 import Sidebar from '../components/Sidebar.jsx'
@@ -26,6 +28,9 @@ export default function InventoryPage() {
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [photoChange, setPhotoChange] = useState(undefined)
+  const [photoError, setPhotoError] = useState('')
+  const [preparingPhoto, setPreparingPhoto] = useState(false)
   const [initialOrderQuantity, setInitialOrderQuantity] = useState(null)
   const [saving, setSaving] = useState(false)
   const updateStock = useCallback((inventory, purchases) => {
@@ -49,17 +54,37 @@ export default function InventoryPage() {
     (`${item.name} ${item.sku}`.toLowerCase().includes(search.trim().toLowerCase()))
   ), [rows, category, search])
   if (!token || user?.role !== 'OWNER') return <Navigate to="/" replace />
+  const thumbnail = photoChange === undefined ? items.find(item => item.id === editing)?.thumbnail : photoChange
   function openForm(item) {
     setError(''); setNotice(''); setEditing(item ? item.id : 'new')
+    setPhotoChange(undefined)
+    setPhotoError('')
     const canRequestFirstOrder = !item ||
       (item.on_hand === 0 && !orders.some(order => order.inventory_item_id === item.id))
     setInitialOrderQuantity(canRequestFirstOrder ? '' : null)
     setForm(item ? { name: item.name, sku: item.sku, category: item.category, description: item.description || '', unit: item.unit, unit_cost: String(item.unit_cost) } : { ...emptyForm })
   }
+  async function choosePhoto(event) {
+    const file = event.target.files[0]
+    if (!file) return
+    event.target.value = ''
+    setPreparingPhoto(true)
+    setPhotoError('')
+    try {
+      setPhotoChange(await makeItemThumbnail(file))
+    } catch (err) {
+      setPhotoError(err.message)
+    } finally {
+      setPreparingPhoto(false)
+    }
+  }
   async function save(e) {
-    e.preventDefault(); setSaving(true); setError('')
+    e.preventDefault()
+    if (preparingPhoto || saving) return
+    setSaving(true); setError('')
     try {
       const body = { ...form, name: form.name.trim(), sku: form.sku.trim(), category: form.category.trim(), unit: form.unit.trim(), unit_cost: form.unit_cost, description: form.description.trim() || null }
+      if (photoChange !== undefined) body.thumbnail = photoChange
       const requestFirstOrder = initialOrderQuantity !== null && initialOrderQuantity !== ''
       if (requestFirstOrder) body.initial_order_quantity = Number(initialOrderQuantity)
       await requestJSON(editing === 'new' ? '/api/inventory' : `/api/inventory/${editing}`, { token, method: editing === 'new' ? 'POST' : 'PATCH', body })
@@ -84,7 +109,7 @@ export default function InventoryPage() {
       ['Categories', new Set(rows.map(item => item.category)).size, 'layers', 'violet'],
     ]} />}
     <section className="panel inventory-panel"><div className="inventory-toolbar"><label>Search items<input aria-label="Search items" placeholder="Search by item name or SKU" value={search} onChange={e => setSearch(e.target.value)}/></label><label>Category<select aria-label="Category filter" value={category} onChange={e => setCategory(e.target.value)}>{['All categories', ...new Set([...categories, ...items.map(i => i.category)])].map(c => <option key={c}>{c}</option>)}</select></label><span className="inventory-count">{filtered.length} of {rows.length} items</span></div>
-    <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Category</th><th>On hand</th><th>On order</th><th>Reserved</th><th>Reorder point</th><th>Position</th><th>Status</th><th>Unit cost</th><th>Action</th></tr></thead><tbody>{filtered.map(item => <tr key={item.id}><td><ProductIdentity name={item.name} sku={item.sku} unit={item.unit} /></td><td><span className="category-pill" data-category={item.category}>{item.category}</span></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{item.reserved_qty}</td><td>{Number(item.reorder_point).toFixed(1)}</td><td>{item.position}</td><td><span className={item.low ? 'stock-pill low' : 'stock-pill healthy'}>{item.low ? 'Low Stock' : 'Healthy'}</span></td><td>{rupees.format(Number(item.unit_cost))}</td><td><button className="button-light" onClick={() => openForm(item)}>Edit</button></td></tr>)}{!loading && filtered.length === 0 && <tr><td colSpan="10" className="empty">No matching inventory items.</td></tr>}</tbody></table></div>{loading && <p className="subtle">Loading inventory and purchase orders…</p>}</section>
+    <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Category</th><th>On hand</th><th>On order</th><th>Reserved</th><th>Reorder point</th><th>Position</th><th>Status</th><th>Unit cost</th><th>Action</th></tr></thead><tbody>{filtered.map(item => <tr key={item.id}><td><ProductIdentity name={item.name} sku={item.sku} unit={item.unit} category={item.category} thumbnail={item.thumbnail} /></td><td><span className="category-pill" data-category={item.category}>{item.category}</span></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{item.reserved_qty}</td><td>{Number(item.reorder_point).toFixed(1)}</td><td>{item.position}</td><td><span className={item.low ? 'stock-pill low' : 'stock-pill healthy'}>{item.low ? 'Low Stock' : 'Healthy'}</span></td><td>{rupees.format(Number(item.unit_cost))}</td><td><button className="button-light" onClick={() => openForm(item)}>Edit</button></td></tr>)}{!loading && filtered.length === 0 && <tr><td colSpan="10" className="empty">No matching inventory items.</td></tr>}</tbody></table></div>{loading && <p className="subtle">Loading inventory and purchase orders…</p>}</section>
     {editing !== null && <div className="modal-backdrop"><section className="item-dialog" role="dialog" aria-modal="true" aria-label={editing === 'new' ? 'Add item' : 'Edit item'}><h2>{editing === 'new' ? 'Add inventory item' : 'Edit item details'}</h2><form onSubmit={save}>{[['name','Item name'],['sku','SKU'],['category','Category'],['unit','Unit'],['unit_cost','Unit cost (INR)']].map(([key,label]) => <label key={key}>{label}{key === 'category' ? <><input list="shelfsync-categories" required maxLength="100" value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}/><datalist id="shelfsync-categories">{categories.map(c => <option key={c} value={c}/>)}</datalist></> : <input required maxLength={key === 'name' ? 200 : key === 'sku' ? 64 : 40} type={key === 'unit_cost' ? 'number' : 'text'} min={key === 'unit_cost' ? 0 : undefined} step={key === 'unit_cost' ? '.01' : undefined} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}/>}</label>)}
     {initialOrderQuantity !== null && <label>
       First order quantity (optional)
@@ -92,6 +117,16 @@ export default function InventoryPage() {
         onChange={e => setInitialOrderQuantity(e.target.value)} />
       <span className="subtle">Enter the number of units to request in Purchasing.</span>
     </label>}
-    <label className="full">Description<textarea maxLength="5000" rows="3" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}/></label>{error && <p className="error full" role="alert">{error}</p>}<div className="dialog-actions"><button type="button" className="button-light" onClick={() => setEditing(null)} disabled={saving}>Cancel</button><button className="button-primary" disabled={saving}>{saving ? 'Saving…' : 'Save item'}</button></div></form></section></div>}
+    <div className="full item-photo">
+      <ProductImage sku={form.sku} name={form.name} category={form.category} thumbnail={thumbnail} />
+      <label>Item photo (optional)
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} disabled={preparingPhoto || saving} />
+        <span className="subtle">JPG, PNG or WebP, up to 10 MB.</span>
+      </label>
+      {thumbnail && <button type="button" className="button-light" disabled={preparingPhoto || saving}
+        onClick={() => { setPhotoChange(null); setPhotoError('') }}>Remove photo</button>}
+    </div>
+    {photoError && <p className="error full" role="alert">{photoError}</p>}
+    <label className="full">Description<textarea maxLength="5000" rows="3" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}/></label>{error && <p className="error full" role="alert">{error}</p>}<div className="dialog-actions"><button type="button" className="button-light" onClick={() => setEditing(null)} disabled={saving || preparingPhoto}>Cancel</button><button className="button-primary" disabled={saving || preparingPhoto}>{preparingPhoto ? 'Preparing photo…' : saving ? 'Saving…' : 'Save item'}</button></div></form></section></div>}
     </div></main></div>
 }

@@ -2,12 +2,14 @@
 
 Stock mutations are handled by the transactional checkout and receiving services.
 """
+from base64 import b64decode
+from binascii import Error as Base64Error
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -25,11 +27,28 @@ router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
 InitialOrderQuantity = Annotated[int, Field(strict=True, gt=0, le=2_147_483_647)]
 
 
+def validate_thumbnail(value: str) -> str:
+    try:
+        image = b64decode(value.removeprefix("data:image/jpeg;base64,"), validate=True)
+    except Base64Error as exc:
+        raise ValueError("Invalid item photo") from exc
+    if not image.startswith(b"\xff\xd8\xff") or not image.endswith(b"\xff\xd9"):
+        raise ValueError("Invalid JPEG item photo")
+    return value
+
+
+Thumbnail = Annotated[
+    str, Field(max_length=12_000, pattern=r"^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$"),
+    AfterValidator(validate_thumbnail),
+]
+
+
 class ItemFields(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     sku: str = Field(min_length=1, max_length=64)
     category: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=5000)
+    thumbnail: Thumbnail | None = None
     unit: str = Field(min_length=1, max_length=40)
     unit_cost: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
 
@@ -58,6 +77,7 @@ class ItemUpdate(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=64)
     category: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=5000)
+    thumbnail: Thumbnail | None = None
     unit: str | None = Field(default=None, min_length=1, max_length=40)
     unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     initial_order_quantity: InitialOrderQuantity | None = None
@@ -85,6 +105,7 @@ class ItemResponse(BaseModel):
     sku: str
     category: str
     description: str | None
+    thumbnail: str | None = None
     unit: str
     unit_cost: Decimal
     on_hand: int
@@ -317,7 +338,7 @@ def update_item(
                 status_code=409, detail="A first order requires zero on-hand stock and no previous purchase orders",
             )
     updates = data.model_dump(exclude_unset=True, exclude={"initial_order_quantity"})
-    if any(value is None for key, value in updates.items() if key != "description"):
+    if any(value is None for key, value in updates.items() if key not in {"description", "thumbnail"}):
         raise HTTPException(status_code=422, detail="Required item fields cannot be null")
     for key, value in updates.items():
         setattr(item, key, value)

@@ -61,6 +61,7 @@ class InventoryItem(Base):
     sku: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     category: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    thumbnail: Mapped[str | None] = mapped_column(String(12_000))
     on_hand: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     reserved_qty: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     unit: Mapped[str] = mapped_column(String(40), nullable=False)

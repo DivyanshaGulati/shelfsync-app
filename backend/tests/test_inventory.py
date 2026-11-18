@@ -85,6 +85,34 @@ def test_owner_creates_item_with_safe_stock_defaults(client):
     assert http.post("/api/inventory", headers=owner, json=data).status_code == 409
 
 
+def test_item_thumbnail_is_saved_listed_and_removed(client):
+    http, _, owner, employee = client
+    thumbnail = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAIAAgBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AP//Z"
+    data = {"name": "New drill bit", "sku": "DRILL-01", "category": "Tools & Adhesives",
+            "unit": "pcs", "unit_cost": "15.00", "thumbnail": thumbnail}
+
+    for invalid in ("https://example.test/photo.jpg", "data:image/jpeg;base64,AAAA",
+                    "data:image/jpeg;base64," + "A" * 12000):
+        result = http.post("/api/inventory", headers=owner, json={**data, "thumbnail": invalid})
+        assert result.status_code == 422
+
+    created = http.post("/api/inventory", headers=owner, json=data)
+    assert created.status_code == 201, created.text
+    assert created.json()["thumbnail"] == thumbnail
+    url = f"/api/inventory/{created.json()['id']}"
+    assert http.get("/api/inventory?q=DRILL-01", headers=employee).json()["items"][0]["thumbnail"] == thumbnail
+
+    renamed = http.patch(url, headers=owner, json={"name": "Drill bit"})
+    assert renamed.status_code == 200
+    assert renamed.json()["thumbnail"] == thumbnail
+    removed = http.patch(url, headers=owner, json={"thumbnail": None})
+    assert removed.status_code == 200
+    assert http.get(url, headers=employee).json()["thumbnail"] is None
+    added = http.patch(url, headers=owner, json={"thumbnail": thumbnail})
+    assert added.status_code == 200
+    assert added.json()["thumbnail"] == thumbnail
+
+
 @pytest.mark.parametrize(
     ("quantity", "mock_mode", "status", "dispatch"),
     [

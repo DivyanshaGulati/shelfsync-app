@@ -38,6 +38,7 @@ EXPECTED_REVISIONS = {
     "0007_stock_receipts", "0008_mock_purchase_workflow", "0009_purchase_tracking",
     "0010_clean_item_descriptions",
     "0011_inventory_insight_reports",
+    "0012_item_thumbnails",
 }
 REQUIRED_INDEXES = {
     "vendor_items": {"ix_vendor_items_one_preferred"},

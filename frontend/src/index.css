@@ -205,6 +205,8 @@ td.empty { padding: 24px 12px; }
 .item-dialog h2 { margin: 0 0 8px; font-size: 20px; font-weight: 750; }
 .item-dialog form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 18px; }
 .item-dialog form .full, .dialog-actions { grid-column: 1 / -1; }
+.item-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.item-photo label { flex: 1; min-width: 0; }
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 
 .purchase-panel, .purchase-detail { margin-top: 20px; padding: 20px; }

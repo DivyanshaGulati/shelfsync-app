@@ -27,10 +27,18 @@ const pictures = new Map([
   ['TL-MSL-01', epoxyPutty],
 ])
 
-export default function ProductImage({ sku, name }) {
-  const picture = pictures.get(sku?.trim().toUpperCase())
+const categoryIcons = new Map([
+  ['fasteners', 'layers'],
+  ['plumbing', 'plumbing'],
+  ['electrical', 'electrical'],
+  ['tools & adhesives', 'tools'],
+  ['hardware fittings', '/inventory'],
+])
+
+export default function ProductImage({ sku, name, category, thumbnail }) {
+  const picture = thumbnail ?? pictures.get(sku?.trim().toUpperCase())
     ?? (/^3\.5\s*inch\b.*\bblade\b/i.test(name?.trim() ?? '') ? segmentedBlade : null)
   return picture
     ? <img className="product-picture" src={picture} alt="" width="56" height="56" loading="lazy" decoding="async" />
-    : <span className="product-picture product-placeholder" aria-hidden="true"><Icon name="/inventory" /></span>
+    : <span className="product-picture product-placeholder" aria-hidden="true"><Icon name={categoryIcons.get(category?.trim().toLowerCase()) ?? '/inventory'} /></span>
 }

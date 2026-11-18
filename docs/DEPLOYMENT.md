@@ -55,4 +55,4 @@ Apply environment changes by recreating the relevant service, for example `docke
 
 Record the deployed revision and migration state. Build and test the candidate release, stop writes for a consistent backup, and take a private PostgreSQL dump before migrating. Rehearse restoration into a separate database. Retain the prior application revision and confirm schema compatibility before rolling back.
 
-The current migration head is `0011_inventory_insight_reports`. Run upgrades explicitly; application startup does not migrate the schema. Keep database credentials consistent with the initialized volume: editing an environment file alone does not change an existing PostgreSQL role password. Never remove production volumes during an update.
+The current migration head is `0012_item_thumbnails`. Run upgrades explicitly; application startup does not migrate the schema. Keep database credentials consistent with the initialized volume: editing an environment file alone does not change an existing PostgreSQL role password. Never remove production volumes during an update.

@@ -17,7 +17,7 @@ ENABLE_CONTACT_EMAIL=false
 
 Set a separate database such as `shelfsync_demo`, a strong local JWT secret, Owner email and seed passwords. Configure an authorized AI provider key if you want advisory operations. Apply Alembic migrations, then seed only this disposable demo database with `python -m app.db.seed --confirm-demo`.
 
-The seed is idempotent; it does not reset prior checkouts, orders or passwords. For a pristine rerun, create another disposable database. The latest supplied migration is `0011_inventory_insight_reports`.
+The seed is idempotent; it does not reset prior checkouts, orders or passwords. For a pristine rerun, create another disposable database. The latest supplied migration is `0012_item_thumbnails`.
 
 ## Walkthrough
 

@@ -138,7 +138,7 @@ export default function EmployeeCheckout() {
             <button className="button-light" disabled={!cart.length || saving} onClick={() => setCart([])}>Clear all</button>
           </div>
           {cart.length ? <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Quantity</th><th>Action</th></tr></thead>
-            <tbody>{cart.map(line => <tr key={line.key}><td><ProductIdentity name={line.item.name} sku={line.item.sku} unit={line.item.unit} /></td>
+            <tbody>{cart.map(line => <tr key={line.key}><td><ProductIdentity name={line.item.name} sku={line.item.sku} unit={line.item.unit} category={line.item.category} thumbnail={line.item.thumbnail} /></td>
               <td>{line.quantity}</td><td><button className="button-light" disabled={saving} aria-label={`Remove ${line.item.name}`} onClick={() => setCart(lines => lines.filter(entry => entry.key !== line.key))}><Icon name="trash" /></button></td>
             </tr>)}</tbody></table></div> : <p className="subtle">Add an item to start your checkout.</p>}
         </section>
