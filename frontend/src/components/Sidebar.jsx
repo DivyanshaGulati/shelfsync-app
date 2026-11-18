@@ -9,7 +9,7 @@ const ownerLinks = [
   { to: '/purchasing', label: 'Purchasing' },
 ]
 
-export default function Sidebar({ employee = false, showContact = true }) {
+export default function Sidebar({ employee = false }) {
   const checkout = { to: '/checkout', label: employee ? 'Employee Checkout' : 'Checkout' }
   const links = employee ? [checkout] : [...ownerLinks, checkout]
 
@@ -24,12 +24,6 @@ export default function Sidebar({ employee = false, showContact = true }) {
             <span>{label}</span>
           </NavLink>
         ))}
-        {showContact && (
-          <NavLink to="/contact" end className="nav-item sidebar-contact">
-            <Icon name="contact" />
-            <span>Contact</span>
-          </NavLink>
-        )}
       </nav>
     </aside>
   )

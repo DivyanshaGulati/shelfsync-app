@@ -84,7 +84,7 @@ export default function OwnerDashboard() {
   const metrics = useMemo(() => data ? dashboardMetrics(data.inventory, data.orders, data.transactions) : null, [data])
   if (token && user?.role === 'EMPLOYEE') return <Navigate to="/checkout" replace />
   return <div className="dashboard-shell">
-    {token && <Sidebar showContact />}
+    {token && <Sidebar />}
     <main className="dashboard-main">
       {token && (
         <header className="topbar">
@@ -104,7 +104,11 @@ export default function OwnerDashboard() {
             <li key={title}><span className="icon-tile"><Icon name={icon} /></span><div><strong>{title}</strong><small>{detail}</small></div></li>
           )}</ul>
         </section>
-        <section className="login-panel"><div className="login-brand">ShelfSync</div><h2>Sign in to your workspace</h2><p>Access your inventory, orders and insights</p><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>{error && <p className="error" role="alert">{error}</p>}</section></div> : <div className="content">
+        <section className="login-panel"><div className="login-brand">ShelfSync</div><h2>Sign in to your workspace</h2><p>Access your inventory, orders and insights</p><form onSubmit={login}><label>Email<input type="email" required autoComplete="username" value={credentials.email} onChange={e=>setCredentials(c=>({...c,email:e.target.value}))}/></label><label>Password<input type="password" required autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials(c=>({...c,password:e.target.value}))}/></label><button disabled={loading} className="button-primary">{loading?'Signing in…':'Sign in to ShelfSync'}</button></form>
+          {error && <p className="error" role="alert">{error}</p>}
+          <Link to="/contact" className="login-contact"><Icon name="contact" />Contact</Link>
+        </section>
+      </div> : <div className="content">
         <div className="heading-row"><PageTitle icon="/" title="Owner Dashboard" /><button className="button-primary" disabled={loading} onClick={()=>setRefresh(x=>x+1)}>{loading?'Loading…':'↻ Refresh data'}</button></div>
         {error && <div className="error-banner" role="alert">{error}</div>}
         {lastUpdated && <p className="updated">Last refreshed: {lastUpdated.toLocaleString('en-IN')}</p>}
