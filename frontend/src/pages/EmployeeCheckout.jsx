@@ -7,14 +7,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { ApiError, getAllPages, requestJSON } from '../lib/api.js'
+import { addCheckoutItem, availableCheckoutStock } from '../lib/checkoutCart.js'
 import Sidebar from '../components/Sidebar.jsx'
 
-// The key belongs to a single immutable checkout attempt, not a button click.
-// Keep it on transport failures so retries cannot deduct stock twice.
-function checkoutUUID() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  throw new Error('Secure checkout requires a browser with crypto.randomUUID support.')
-}
 function describeError(error) {
   if (error instanceof ApiError) {
     if (error.status === 409) return `${error.message}. Refresh stock and review your request before changing it.`
@@ -52,24 +47,23 @@ export default function EmployeeCheckout() {
   }, [allowed, token, refresh, logout])
   const matches = useMemo(() => items.filter(item => `${item.name} ${item.sku} ${item.category}`.toLowerCase().includes(query.trim().toLowerCase())), [items, query])
   const item = items.find(row => String(row.id) === selected)
-  const available = item ? Math.max(0, Number(item.on_hand) - Number(item.reserved_qty)) : 0
+  const cartLine = cart.find(line => line.item.id === item?.id)
+  const available = item ? availableCheckoutStock(item) : 0
+  const addable = Math.max(0, available - (cartLine?.quantity ?? 0))
   const count = Number(quantity)
-  const valid = item && Number.isSafeInteger(count) && count > 0 && count <= available && note.length <= 5000
+  const valid = item && !cartLine?.attempted && Number.isSafeInteger(count) && count > 0 && count <= addable && note.length <= 5000
+  const stockById = new Map(items.map(row => [row.id, availableCheckoutStock(row)]))
+  const invalidLine = line => !line.attempted && line.quantity > (stockById.get(line.item.id) ?? 0)
+  const stockChanged = !loading && cart.some(invalidLine)
+  const hasUnconfirmed = cart.some(line => line.attempted)
   if (!allowed) return <Navigate to="/" replace />
   function changeRequest(fn) { if (saving) return; setSuccess(null); setError(''); fn() }
   async function reload() { setRefresh(n => n + 1) }
   function addItem(event) {
     event.preventDefault()
-    if (!valid || saving) return
-    const queued = cart.filter(line => line.item.id === item.id).reduce((sum, line) => sum + line.quantity, 0)
-    if (queued + count > available) {
-      setError('The combined quantity exceeds available stock.')
-      return
-    }
+    if (!valid || loading || saving || inFlight.current) return
     try {
-      const group = cart[0]?.group ?? checkoutUUID()
-      const line = { item, quantity: count, note: note.trim() || null, group, key: `checkout-cart-${group}-${checkoutUUID()}` }
-      setCart(lines => [...lines, line])
+      setCart(addCheckoutItem(cart, item, count, note))
       setSelected('')
       setQuantity('1')
       setNote('')
@@ -79,7 +73,7 @@ export default function EmployeeCheckout() {
   }
 
   async function completeCheckout() {
-    if (!cart.length || inFlight.current) return
+    if (!cart.length || loading || stockChanged || inFlight.current) return
     inFlight.current = true
     setSaving(true)
     setError('')
@@ -88,7 +82,18 @@ export default function EmployeeCheckout() {
     try {
       for (const line of cart) {
         const body = { inventory_item_id: line.item.id, quantity: line.quantity, usage_note: line.note, idempotency_key: line.key }
-        await requestJSON('/api/checkout', { token, method: 'POST', body })
+        // A lost response can leave a committed checkout. Keep its exact payload for retry.
+        setCart(lines => lines.map(entry => entry.key === line.key ? { ...entry, attempted: true } : entry))
+        try {
+          await requestJSON('/api/checkout', { token, method: 'POST', body })
+        } catch (err) {
+          const stockRejected = err instanceof ApiError && err.status === 409 && err.message === 'Insufficient available stock'
+          const newAttemptRejected = !line.attempted && err instanceof ApiError && [403, 404, 409, 422].includes(err.status)
+          if (stockRejected || newAttemptRejected) {
+            setCart(lines => lines.map(entry => entry.key === line.key ? { ...entry, attempted: false } : entry))
+          }
+          throw err
+        }
         completed += 1
         setCart(lines => lines.filter(entry => entry.key !== line.key))
       }
@@ -110,24 +115,27 @@ export default function EmployeeCheckout() {
         {success && <p className="success-banner" role="status">{success} checkout {success === 1 ? 'entry' : 'entries'} recorded.</p>}
         <section className="panel checkout-panel">
           <form className="checkout-form" onSubmit={addItem}>
-            <label>Select item<select value={selected} required onChange={e => changeRequest(() => setSelected(e.target.value))} disabled={loading || saving}><option value="">Choose an inventory item</option>{matches.map(row => <option key={row.id} value={row.id}>{row.name} ({row.sku}) — {Math.max(0, row.on_hand - row.reserved_qty)} available</option>)}</select></label>
+            <label>Select item<select value={selected} required onChange={e => changeRequest(() => setSelected(e.target.value))} disabled={loading || saving}><option value="">Choose an inventory item</option>{matches.map(row => <option key={row.id} value={row.id}>{row.name} ({row.sku}) — {availableCheckoutStock(row)} available</option>)}</select></label>
             <div className="quantity-field">
               <label htmlFor="checkout-quantity">Quantity</label>
               <div className="quantity-stepper">
                 <button type="button" aria-label="Decrease quantity" disabled={saving || count <= 1}
                   onClick={() => changeRequest(() => setQuantity(String(Math.max(1, count - 1))))}>−</button>
-                <input id="checkout-quantity" type="number" required min="1" max={available || undefined}
+                <input id="checkout-quantity" type="number" required min="1" max={addable || undefined}
                   step="1" inputMode="numeric" value={quantity} onChange={e => changeRequest(() => setQuantity(e.target.value))} disabled={saving} />
-                <button type="button" aria-label="Increase quantity" disabled={saving || !item || count >= available}
+                <button type="button" aria-label="Increase quantity" disabled={saving || loading || !item || cartLine?.attempted || count >= addable}
                   onClick={() => changeRequest(() => setQuantity(String(count + 1)))}>+</button>
               </div>
             </div>
             <button className="button-primary" type="submit" disabled={!valid || saving || loading}>+ Add to Checkout</button>
             {loading && <p className="subtle">Loading inventory…</p>}
             {!loading && matches.length === 0 && <p className="subtle">No matching items found.</p>}
-            {item && <div className="checkout-stock"><ProductImage sku={item.sku} name={item.name} /><div><small>On hand</small><strong>{item.on_hand}</strong></div><div><small>Reserved</small><strong>{item.reserved_qty}</strong></div><div><small>Available</small><strong>{available} {item.unit}</strong></div></div>}
-            {item && available === 0 && <p className="error">No unreserved stock is available for this item.</p>}
-            {item && Number.isFinite(count) && count > available && <p className="error">Requested quantity exceeds available stock ({available}).</p>}
+            {item && <div className="checkout-stock"><ProductImage sku={item.sku} name={item.name} /><div><small>On hand</small><strong>{item.on_hand}</strong></div><div><small>Reserved</small><strong>{item.reserved_qty}</strong></div><div><small>Available to add</small><strong>{addable} {item.unit}</strong></div></div>}
+            {item && (cartLine?.attempted
+              ? <p className="subtle">Retry checkout before adding more of this item.</p>
+              : addable === 0
+                ? <p className="error">{cartLine ? 'No more units can be added to this checkout.' : 'No unreserved stock is available for this item.'}</p>
+                : count > addable && <p className="error">You can add up to {addable} more.</p>)}
             <details className="checkout-options">
               <summary>Search or add a note</summary>
             <label>Search inventory<input type="search" value={query} onChange={e => changeRequest(() => { setQuery(e.target.value); setSelected('') })} placeholder="Item name, SKU, or category" aria-label="Search inventory" disabled={saving}/></label>
@@ -136,13 +144,15 @@ export default function EmployeeCheckout() {
           </form></section>
         <section className="panel cart-panel">
           <div className="heading-row"><h2 className="section-title"><Icon name="layers" /> Items in this Checkout ({cart.length})</h2>
-            <button className="button-light" disabled={!cart.length || saving} onClick={() => setCart([])}>Clear all</button>
+            <button className="button-light" disabled={!cart.length || saving || hasUnconfirmed} onClick={() => setCart([])}>Clear all</button>
           </div>
+          {stockChanged && <p className="error-banner" role="alert">Available stock changed. Remove the affected item and add it again with a lower quantity.</p>}
+          {hasUnconfirmed && !saving && <p className="subtle">Retry checkout to confirm the pending item.</p>}
           {cart.length ? <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Quantity</th><th>Action</th></tr></thead>
             <tbody>{cart.map(line => <tr key={line.key}><td><ProductIdentity name={line.item.name} sku={line.item.sku} unit={line.item.unit} category={line.item.category} thumbnail={line.item.thumbnail} /></td>
-              <td>{line.quantity}</td><td><button className="button-light" disabled={saving} aria-label={`Remove ${line.item.name}`} onClick={() => setCart(lines => lines.filter(entry => entry.key !== line.key))}><Icon name="trash" /></button></td>
+              <td>{line.quantity}{!loading && invalidLine(line) && <small>{stockById.get(line.item.id) ?? 0} available</small>}</td><td><button className="button-light" disabled={saving || line.attempted} aria-label={`Remove ${line.item.name}`} onClick={() => setCart(lines => lines.filter(entry => entry.key !== line.key))}><Icon name="trash" /></button></td>
             </tr>)}</tbody></table></div> : <p className="subtle">Add an item to start your checkout.</p>}
         </section>
-        <button className="button-primary checkout-complete" disabled={!cart.length || saving || loading} onClick={completeCheckout}>{saving ? 'Recording…' : 'Complete Checkout'}</button>
+        <button className="button-primary checkout-complete" disabled={!cart.length || saving || loading || stockChanged} onClick={completeCheckout}>{saving ? 'Recording…' : hasUnconfirmed ? 'Retry Checkout' : 'Complete Checkout'}</button>
       </div></main></div>
 }
