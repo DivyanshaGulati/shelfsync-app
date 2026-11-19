@@ -235,10 +235,12 @@ td.empty { padding: 24px 12px; }
 .insights-table .product-identity { min-width: 0; overflow-wrap: anywhere; }
 .insights-table .stock-pill { white-space: normal; }
 .insights-incoming { color: var(--accent); background: var(--accent-soft); }
-.insights-table a:hover, .insights-summary summary:hover { text-decoration: underline; }
-.insights-summary { margin-top: 14px; font-size: 13px; color: var(--muted); }
-.insights-summary summary { width: fit-content; cursor: pointer; font-weight: 650; }
-.insights-summary p { margin-top: 8px; white-space: pre-line; }
+.insights-table a:hover { text-decoration: underline; }
+.insights-summary {
+  margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--accent);
+  border-radius: 8px; background: var(--accent-soft); color: var(--ink); font-size: 14px;
+}
+.insights-summary p { margin-top: 4px; overflow-wrap: anywhere; }
 .insights-tip { margin: 20px 0; background: #f6f2ff; }
 .insights-tip p { margin-top: 8px; }
 .insight-highlights :is(a, button):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

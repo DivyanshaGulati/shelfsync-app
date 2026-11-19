@@ -165,7 +165,7 @@ export default function InventoryInsightsPage() {
                 <span className="icon-tile"><Icon name="list" /></span>
                 Priority Items ({numberFormat.format(items.length)})
               </h2>
-              <InventoryInsight items={items} insight={stock.summary ? stock : null} />
+              <InventoryInsight items={items} summary={stock.summary} />
             </section>
           )}
         </div>

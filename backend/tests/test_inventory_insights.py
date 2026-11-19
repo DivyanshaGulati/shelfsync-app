@@ -106,10 +106,19 @@ def test_saved_history_is_owner_scoped_paginated_and_keeps_original_stock(setup,
     assert snapshot["low_stock_items"] == len(snapshot["priority_items"]) == 1
     first = client.post(url, headers=owner).json()
     assert first["priority_item"]["on_hand"] == 4
+    assert client.get(f"{url}/snapshot", headers=owner).json()["summary"] == first["summary"]
+    assert client.get(f"{url}/snapshot", headers=other_owner).json()["summary"] is None
+    with factory.begin() as db:
+        db.get(InventoryItem, 1).on_hand = 3
+    changed = client.get(f"{url}/snapshot", headers=owner).json()
+    assert changed["low_stock_items"] == 1
+    assert changed["summary"] is None
     with factory.begin() as db:
         db.get(InventoryItem, 1).on_hand = 10
 
-    assert client.get(f"{url}/snapshot", headers=owner).json() == {"inventory_items": 1, "low_stock_items": 0, "priority_items": []}
+    assert client.get(f"{url}/snapshot", headers=owner).json() == {
+        "inventory_items": 1, "low_stock_items": 0, "priority_items": [], "summary": None,
+    }
     second = client.post(url, headers=owner).json()
     assert second["priority_item"] is None
     assert second["id"] > first["id"]

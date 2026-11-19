@@ -7,9 +7,15 @@ const orderLabels = {
   PARTIALLY_RECEIVED: 'Partially Received',
 }
 
-export default function InventoryInsight({ items, insight }) {
+export default function InventoryInsight({ items, summary }) {
   return (
     <>
+      {summary && (
+        <div className="insights-summary" role="status">
+          <strong>AI summary</strong>
+          <p>{summary}</p>
+        </div>
+      )}
       {items.length > 0 ? (
         <div className="table-scroll insights-table">
           <table aria-label="Priority items">
@@ -28,12 +34,6 @@ export default function InventoryInsight({ items, insight }) {
           </table>
         </div>
       ) : <p className="insights-empty">No low-stock items.</p>}
-      {insight && (
-        <details className="insights-summary">
-          <summary>AI summary</summary>
-          <p>{insight.summary}</p>
-        </details>
-      )}
     </>
   )
 }

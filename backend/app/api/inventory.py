@@ -209,6 +209,7 @@ class InsightStockOverview(BaseModel):
     inventory_items: int
     low_stock_items: int
     priority_items: list[InsightPriorityItem]
+    summary: str | None = None
 
 
 def _stock_snapshot(db: Session) -> dict:
@@ -240,10 +241,27 @@ def _saved_insight(report: InventoryInsightReport) -> SavedInventoryInsight:
 @router.get("/ai-insights/snapshot", response_model=InsightStockOverview)
 def inventory_insight_stock_overview(
     db: Annotated[Session, Depends(get_db)],
-    _owner: Annotated[User, Depends(require_roles("OWNER"))],
+    owner: Annotated[User, Depends(require_roles("OWNER"))],
 ):
     snapshot = _stock_snapshot(db)
-    return {**snapshot, "priority_items": snapshot["low_stock_candidates"]}
+    items = [InsightPriorityItem.model_validate(item) for item in snapshot["low_stock_candidates"]]
+    latest = db.scalar(
+        select(InventoryInsightReport).where(InventoryInsightReport.owner_id == owner.id)
+        .order_by(InventoryInsightReport.id.desc()).limit(1)
+    )
+    summary = None
+    if latest is not None:
+        saved = _saved_insight(latest)
+        if (saved.inventory_items == snapshot["inventory_items"]
+                and saved.low_stock_items == snapshot["low_stock_items"]
+                and saved.priority_items is not None
+                and {item.sku: item for item in saved.priority_items} == {item.sku: item for item in items}):
+            summary = saved.summary
+            items = saved.priority_items
+    return InsightStockOverview(
+        inventory_items=snapshot["inventory_items"], low_stock_items=snapshot["low_stock_items"],
+        priority_items=items, summary=summary,
+    )
 
 
 @router.get("/ai-insights/growth-tip")
