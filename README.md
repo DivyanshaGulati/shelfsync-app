@@ -23,7 +23,7 @@ Stock usage, supplier quotations and purchase decisions often sit in separate re
 
 Employee checkout updates stock and demand. Replenishment creates a purchase request when the applicable conditions are met. Quotations are collected and compared, the backend validates authorization or requests Owner approval, and dispatch is tracked separately from order placement. Receiving increases physical stock by the quantity actually received.
 
-The application includes a detailed purchasing workflow and an explicitly enabled streamlined mock workflow. The mock workflow uses simulated catalogue quotations and its own INR 10,000 approval threshold. The detailed workflow uses `AUTO_ORDER_LIMIT` (default INR 2,000) together with additional purchasing rules.
+The application includes a detailed purchasing workflow and an explicitly enabled streamlined mock workflow. The mock workflow uses simulated catalogue quotations and its own INR 1,00,000 approval threshold. The detailed workflow uses `AUTO_ORDER_LIMIT` (default INR 2,000) together with additional purchasing rules.
 
 ## AI and purchasing safeguards
 

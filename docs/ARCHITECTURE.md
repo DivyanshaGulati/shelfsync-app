@@ -19,7 +19,7 @@ Stock health distinguishes physical On Hand from outstanding On Order. Reorder c
 
 The detailed purchasing workflow collects fresh quotations, compares them deterministically and applies backend authorization rules or an Owner decision. Approval revalidates the selected quotation. `PLACED` represents internal authorization; email dispatch has its own audit state.
 
-The streamlined mock purchasing workflow is a separate, explicitly enabled demo path. It uses simulated catalogue quotations, validates an advisory AI selection and applies its own INR 10,000 approval threshold. The detailed workflow uses configured `AUTO_ORDER_LIMIT` (default INR 2,000) and additional routine-purchase checks. These are distinct paths; the mock threshold does not describe live supplier purchasing.
+The streamlined mock purchasing workflow is a separate, explicitly enabled demo path. It uses simulated catalogue quotations, validates an advisory AI selection and applies its own INR 1,00,000 approval threshold. The detailed workflow uses configured `AUTO_ORDER_LIMIT` (default INR 2,000) and additional routine-purchase checks. These are distinct paths; the mock threshold does not describe live supplier purchasing.
 
 ## AI boundary
 

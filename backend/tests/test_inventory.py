@@ -117,7 +117,8 @@ def test_item_thumbnail_is_saved_listed_and_removed(client):
     ("quantity", "mock_mode", "status", "dispatch"),
     [
         (10, "enabled", "PLACED", True),
-        (100, "enabled", "PENDING_APPROVAL", False),
+        (100, "enabled", "PLACED", True),
+        (1000, "enabled", "PENDING_APPROVAL", False),
         (10, "unavailable", "WAITING_FOR_QUOTES", False),
         (10, "real_dispatch_enabled", "WAITING_FOR_QUOTES", False),
     ],

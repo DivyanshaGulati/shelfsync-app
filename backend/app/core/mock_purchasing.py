@@ -17,7 +17,7 @@ from app.core.stock_receipts import record_receipt
 from app.db.models import PurchaseOrder, PurchaseOrderEmailDispatch, Vendor
 
 
-MOCK_APPROVAL_LIMIT = Decimal("10000")
+MOCK_APPROVAL_LIMIT = Decimal("100000")
 logger = logging.getLogger(__name__)
 
 

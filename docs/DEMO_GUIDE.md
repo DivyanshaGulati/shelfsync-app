@@ -24,7 +24,7 @@ The seed is idempotent; it does not reset prior checkouts, orders or passwords. 
 1. Sign in as Employee and record a small checkout. Confirm that On Hand decreases and that replaying the same idempotency key does not deduct twice.
 2. Sign in as Owner. Review physical stock, reorder points and outstanding orders. To demonstrate replenishment, check out an item until its stock reaches its reorder point.
 3. Review replenishment requests in Purchasing. With streamlined mock purchasing enabled, simulated catalogue quotes and advisory AI selection run after qualifying checkouts. If the provider is unavailable, the committed checkout remains valid and the Owner can retry processing the order.
-4. Inspect the recommendation, quotation terms and actual decision. This mock path uses an INR 10,000 threshold; amounts above it require Owner approval. Do not assume a predetermined outcome because current stock and quotes affect it.
+4. Inspect the recommendation, quotation terms and actual decision. This mock path uses an INR 1,00,000 threshold; amounts above it require Owner approval. Do not assume a predetermined outcome because current stock and quotes affect it.
 5. Review the mock final-order dispatch record. It does not send an email to a supplier or to your inbox.
 6. Simulate transit and delivery using the available Owner controls. Receiving changes stock in this demo database. Verify the resulting On Hand, outstanding quantity and order status.
 

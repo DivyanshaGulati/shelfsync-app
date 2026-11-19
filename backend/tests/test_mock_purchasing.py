@@ -118,7 +118,7 @@ def test_checkout_compares_catalogue_vendors_and_auto_places_one_mock_order(setu
         assert db.scalar(select(func.count()).select_from(StockReceipt)) == 1
 
 
-@pytest.mark.parametrize(('price', 'state'), [('10000.00', 'PLACED'), ('10000.01', 'PENDING_APPROVAL')])
+@pytest.mark.parametrize(('price', 'state'), [('100000.00', 'PLACED'), ('100000.01', 'PENDING_APPROVAL')])
 def test_exact_approval_boundary(setup, monkeypatch, select_simulated_quote, price, state):
     client, factory, owner, employee = setup
     order_id = create_request(setup)
@@ -134,7 +134,7 @@ def test_exact_approval_boundary(setup, monkeypatch, select_simulated_quote, pri
     if state == 'PENDING_APPROVAL':
         pending = client.get('/api/purchase-requests?status=PENDING_APPROVAL', headers=owner).json()['items'][0]
         assert pending['vendor_name'] in SAMPLE_VENDOR_NAMES.values()
-        assert pending['total_amount'] == '10000.01'
+        assert pending['total_amount'] == '100000.01'
         assert client.get(base + '/order-email-dispatch', headers=owner).json()['dispatch_status'] == 'NOT_SENT'
         assert client.post(base + '/mock-transit', headers=owner).status_code == 409
         assert client.post(base + '/owner-decision', headers=employee, json={'action': 'APPROVED'}).status_code == 403
