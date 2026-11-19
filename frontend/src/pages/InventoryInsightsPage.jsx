@@ -144,12 +144,17 @@ export default function InventoryInsightsPage() {
                   {tip.target_share == null ? ' and track the rate next week.' : <> and aim for <strong>{tip.target_share}% next week</strong>.</>}
                 </p>
               </> : tip ? <>
-                <p><strong>{tip.product}</strong> · {numberFormat.format(tip.available)} available
-                  {tip.units_checked_out > 0 && <> · {numberFormat.format(tip.units_checked_out)} checked out in {tip.window_days} days</>}
+                <p><strong>{tip.product}</strong> · {numberFormat.format(tip.available)} available.
+                  {tip.weekly_units > 0
+                    ? <> <strong>{numberFormat.format(tip.weekly_units)} checked out</strong> in the last 7 days.</>
+                    : tip.units_checked_out > 0 && <> {numberFormat.format(tip.units_checked_out)} checked out in {tip.window_days} days.</>}
                 </p>
-                <p>{tip.action === 'review_stock'
-                  ? 'This item is at or below its reorder point. Check incoming orders before buying more.'
-                  : 'Try a more visible display for a week and track whether checkouts increase.'}</p>
+                <p>
+                  {tip.action === 'review_stock' ? 'Check incoming orders before topping up.' : 'Move it to a more visible spot'}
+                  {tip.action === 'promote_item' && (tip.weekly_target == null
+                    ? ' and track checkouts next week.'
+                    : <> and aim for <strong>{numberFormat.format(tip.weekly_target)} units next week</strong>.</>)}
+                </p>
               </> : <p><Link to="/inventory">Add inventory items</Link> to get stock and display suggestions.</p>}
             </section>
           )}

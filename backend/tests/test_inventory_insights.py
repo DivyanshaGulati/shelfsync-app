@@ -263,6 +263,7 @@ def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, 
     assert client.get(url, headers=employee).status_code == 403
     assert client.get(url, headers=owner).json()["tip"] == {
         "product": "Teflon Tape", "available": 4, "units_checked_out": 0,
+        "weekly_units": 0, "weekly_target": None,
         "window_days": 30, "action": "promote_item",
     }
 
@@ -316,5 +317,27 @@ def test_growth_tip_uses_recorded_demand_and_available_stock_without_pairs(setup
     assert result.status_code == 200, result.text
     assert result.json()["tip"] == {
         "product": "Teflon Tape", "available": 2, "units_checked_out": 3,
+        "weekly_units": 3, "weekly_target": None,
         "window_days": 30, "action": "review_stock",
+    }
+
+
+def test_growth_tip_sets_goal_from_weekly_checkouts_within_available_stock(setup):
+    client, factory, owner, _ = setup
+    with factory.begin() as db:
+        db.get(InventoryItem, 1).on_hand = 21
+        db.add_all([
+            Transaction(user_id=2, inventory_item_id=1, transaction_type="CHECKOUT",
+                        quantity=20, idempotency_key="recent-tape"),
+            Transaction(user_id=2, inventory_item_id=1, transaction_type="CHECKOUT",
+                        quantity=30, idempotency_key="older-tape",
+                        created_at=datetime.now(timezone.utc) - timedelta(days=8)),
+        ])
+
+    result = client.get("/api/inventory/ai-insights/growth-tip", headers=owner)
+    assert result.status_code == 200, result.text
+    assert result.json()["tip"] == {
+        "product": "Teflon Tape", "available": 21, "units_checked_out": 50,
+        "weekly_units": 20, "weekly_target": 21,
+        "window_days": 30, "action": "promote_item",
     }

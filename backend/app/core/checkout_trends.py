@@ -3,7 +3,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from itertools import combinations
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.claude_agent import AgentInvalidResponse, AgentUnavailable, suggest_checkout_pair_action
@@ -17,33 +17,43 @@ WINDOW_DAYS = 30
 PAIR_WINDOW_DAYS = 7
 
 
-def single_item_tip(db: Session, cutoff: datetime) -> dict | None:
+def single_item_tip(db: Session, cutoff: datetime, week_start: datetime) -> dict | None:
     demand = (
-        select(Transaction.inventory_item_id, func.sum(Transaction.quantity).label("units"))
+        select(Transaction.inventory_item_id, func.sum(Transaction.quantity).label("units"),
+               func.sum(case((Transaction.created_at >= week_start, Transaction.quantity), else_=0)).label("weekly"))
         .where(Transaction.transaction_type == "CHECKOUT", Transaction.created_at >= cutoff,
                ~Transaction.idempotency_key.startswith(HISTORY_PREFIX))
         .group_by(Transaction.inventory_item_id)
         .subquery()
     )
     units = func.coalesce(demand.c.units, 0)
-    available = InventoryItem.on_hand - InventoryItem.reserved_qty
+    available_quantity = InventoryItem.on_hand - InventoryItem.reserved_qty
     item = db.execute(
         select(InventoryItem.name, InventoryItem.on_hand, InventoryItem.reserved_qty,
-               InventoryItem.reorder_point, units.label("units"))
+               InventoryItem.reorder_point, units.label("units"), func.coalesce(demand.c.weekly, 0).label("weekly"))
         .outerjoin(demand, demand.c.inventory_item_id == InventoryItem.id)
-        .order_by(units.desc(), available.desc(), InventoryItem.sku)
+        .order_by(units.desc(), available_quantity.desc(), InventoryItem.sku)
         .limit(1)
     ).first()
     if item is None:
         return None
 
+    available = available_stock(item.on_hand, item.reserved_qty)
+    review_stock = is_low_stock(item.on_hand, item.reserved_qty, item.reorder_point) or (
+        item.weekly > 0 and available <= item.weekly
+    )
+    weekly_target = None
+    if not review_stock and item.weekly > 0:
+        weekly_target = min(available, item.weekly + (item.weekly + 9) // 10)
+
     return {
         "product": item.name,
-        "available": available_stock(item.on_hand, item.reserved_qty),
+        "available": available,
         "units_checked_out": item.units,
+        "weekly_units": item.weekly,
+        "weekly_target": weekly_target,
         "window_days": WINDOW_DAYS,
-        "action": "review_stock" if is_low_stock(item.on_hand, item.reserved_qty, item.reorder_point)
-        else "promote_item",
+        "action": "review_stock" if review_stock else "promote_item",
     }
 
 
@@ -65,17 +75,17 @@ def checkout_growth_tip(db: Session) -> dict:
     pairs = Counter(pair for items in carts.values() for pair in combinations(sorted(items), 2))
     total = len(carts)
     if total < 10 or not pairs:
-        return {"tip": single_item_tip(db, cutoff)}
+        return {"tip": single_item_tip(db, cutoff, pair_cutoff)}
     pair, together = min(pairs.items(), key=lambda entry: (-entry[1], entry[0]))
     if together < 3:
-        return {"tip": single_item_tip(db, cutoff)}
+        return {"tip": single_item_tip(db, cutoff, pair_cutoff)}
 
     products = {item_id: name for item_id, name in db.execute(
         select(InventoryItem.id, InventoryItem.name).where(InventoryItem.id.in_(pair))
     )}
     db.rollback()
     if any(item_id not in products for item_id in pair):
-        return {"tip": single_item_tip(db, cutoff)}
+        return {"tip": single_item_tip(db, cutoff, pair_cutoff)}
 
     cart_counts = Counter(item_id for items in carts.values() for item_id in items)
     primary, companion = sorted(pair, key=lambda item_id: (-cart_counts[item_id], item_id))
