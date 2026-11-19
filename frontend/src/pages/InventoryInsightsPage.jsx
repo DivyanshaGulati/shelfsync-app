@@ -137,10 +137,17 @@ export default function InventoryInsightsPage() {
           {tipOpen && (
             <section className="panel insights-tip" role="status">
               <h2 className="section-title"><Icon name="growth" /> Business Growth Tip</h2>
-              {tip ? <>
+              {tip?.products ? <>
                 <p><strong>{tip.products.join(' + ')}</strong> appeared together in {tip.together} of {tip.total} tracked checkouts ({tip.share}%) in the last {tip.window_days} days.</p>
                 <p>{tip.action === 'test_bundle' ? 'Try offering these items as a bundle and track how often they’re checked out together.' : 'Display these items together and track how often they’re checked out together.'}</p>
-              </> : <p>Not enough checkout history yet. Check back after more items are checked out together.</p>}
+              </> : tip ? <>
+                <p><strong>{tip.product}</strong> · {numberFormat.format(tip.available)} available
+                  {tip.units_checked_out > 0 && <> · {numberFormat.format(tip.units_checked_out)} checked out in {tip.window_days} days</>}
+                </p>
+                <p>{tip.action === 'review_stock'
+                  ? 'This item is at or below its reorder point. Check incoming orders before buying more.'
+                  : 'Try a more visible display for a week and track whether checkouts increase.'}</p>
+              </> : <p><Link to="/inventory">Add inventory items</Link> to get stock and display suggestions.</p>}
             </section>
           )}
 

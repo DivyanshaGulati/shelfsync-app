@@ -10,6 +10,7 @@ from app.core import claude_agent
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.models import InventoryItem, OrderItem, PurchaseOrder, Transaction, User
+from app.db.seed import HISTORY_PREFIX
 from test_groq_provider import fake_groq
 from test_quotation_collection import create_request, setup
 
@@ -260,7 +261,10 @@ def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, 
     client, factory, owner, employee = setup
     url = "/api/inventory/ai-insights/growth-tip"
     assert client.get(url, headers=employee).status_code == 403
-    assert client.get(url, headers=owner).json() == {"tip": None}
+    assert client.get(url, headers=owner).json()["tip"] == {
+        "product": "Teflon Tape", "available": 4, "units_checked_out": 0,
+        "window_days": 30, "action": "promote_item",
+    }
 
     with factory.begin() as db:
         other = InventoryItem(name="Pipe", sku="TEST-PIPE", category="Plumbing", unit="pcs")
@@ -288,4 +292,27 @@ def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, 
     assert response.json()["tip"] == {
         "products": ["Teflon Tape", "Pipe"], "together": 3, "total": 10, "share": 30,
         "window_days": 30, "action": "test_bundle",
+    }
+
+
+def test_growth_tip_uses_recorded_demand_and_available_stock_without_pairs(setup):
+    client, factory, owner, _ = setup
+    with factory.begin() as db:
+        item = db.get(InventoryItem, 1)
+        item.reserved_qty, item.reorder_point = 2, 2
+        other = InventoryItem(name="Pipe", sku="TEST-PIPE", category="Plumbing", unit="pcs", on_hand=12)
+        db.add(other)
+        db.flush()
+        db.add_all([
+            Transaction(user_id=2, inventory_item_id=1, transaction_type="CHECKOUT",
+                        quantity=3, idempotency_key="legacy-tape-checkout"),
+            Transaction(user_id=2, inventory_item_id=other.id, transaction_type="CHECKOUT",
+                        quantity=50, idempotency_key=HISTORY_PREFIX + "pipe-checkout"),
+        ])
+
+    result = client.get("/api/inventory/ai-insights/growth-tip", headers=owner)
+    assert result.status_code == 200, result.text
+    assert result.json()["tip"] == {
+        "product": "Teflon Tape", "available": 2, "units_checked_out": 3,
+        "window_days": 30, "action": "review_stock",
     }
