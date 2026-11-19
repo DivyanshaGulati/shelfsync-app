@@ -138,8 +138,11 @@ export default function InventoryInsightsPage() {
             <section className="panel insights-tip" role="status">
               <h2 className="section-title"><Icon name="growth" /> Business Growth Tip</h2>
               {tip?.products ? <>
-                <p><strong>{tip.products.join(' + ')}</strong> appeared together in {tip.together} of {tip.total} tracked checkouts ({tip.share}%) in the last {tip.window_days} days.</p>
-                <p>{tip.action === 'test_bundle' ? 'Try offering these items as a bundle and track how often they’re checked out together.' : 'Display these items together and track how often they’re checked out together.'}</p>
+                <p><strong>{tip.primary_share}% of {tip.products[0]} checkouts included {tip.products[1]}</strong> in the last {tip.window_days} days ({tip.together} of {tip.primary_total}).</p>
+                <p>
+                  {tip.action === 'test_bundle' ? 'Try a bundle' : 'Stock them side by side'}
+                  {tip.target_share == null ? ' and track the rate next week.' : <> and aim for <strong>{tip.target_share}% next week</strong>.</>}
+                </p>
               </> : tip ? <>
                 <p><strong>{tip.product}</strong> · {numberFormat.format(tip.available)} available
                   {tip.units_checked_out > 0 && <> · {numberFormat.format(tip.units_checked_out)} checked out in {tip.window_days} days</>}

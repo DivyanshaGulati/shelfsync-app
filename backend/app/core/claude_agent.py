@@ -520,7 +520,7 @@ def suggest_checkout_pair_action(*, together: int, total: int) -> str:
             'Use display_together for a low-effort shelf change, or test_bundle for a strongly recurring pair. '
             'Return only JSON with an action field. These counts are not sales revenue or proof of sales lift.'
         ),
-        'messages': [{'role': 'user', 'content': to_json({'paired_checkouts': together, 'total_checkouts': total})}],
+        'messages': [{'role': 'user', 'content': to_json({'paired_checkouts': together, 'primary_item_checkouts': total})}],
         'tools': [],
     })
     if response.get('stop_reason') != 'end_turn':

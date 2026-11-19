@@ -14,6 +14,7 @@ from app.db.seed import HISTORY_PREFIX
 UUID = r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}"
 CART_KEY = re.compile(rf"checkout-cart-({UUID})-{UUID}")
 WINDOW_DAYS = 30
+PAIR_WINDOW_DAYS = 7
 
 
 def single_item_tip(db: Session, cutoff: datetime) -> dict | None:
@@ -47,10 +48,12 @@ def single_item_tip(db: Session, cutoff: datetime) -> dict | None:
 
 
 def checkout_growth_tip(db: Session) -> dict:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=WINDOW_DAYS)
+    pair_cutoff = now - timedelta(days=PAIR_WINDOW_DAYS)
     rows = db.execute(
         select(Transaction.user_id, Transaction.idempotency_key, Transaction.inventory_item_id)
-        .where(Transaction.transaction_type == "CHECKOUT", Transaction.created_at >= cutoff,
+        .where(Transaction.transaction_type == "CHECKOUT", Transaction.created_at >= pair_cutoff,
                Transaction.idempotency_key.like("checkout-cart-%"))
     )
     carts = defaultdict(set)
@@ -74,16 +77,22 @@ def checkout_growth_tip(db: Session) -> dict:
     if any(item_id not in products for item_id in pair):
         return {"tip": single_item_tip(db, cutoff)}
 
-    share = round(100 * together / total)
+    cart_counts = Counter(item_id for items in carts.values() for item_id in items)
+    primary, companion = sorted(pair, key=lambda item_id: (-cart_counts[item_id], item_id))
+    primary_total = cart_counts[primary]
+    primary_share = round(100 * together / primary_total)
     try:
-        action = suggest_checkout_pair_action(together=together, total=total)
+        action = suggest_checkout_pair_action(together=together, total=primary_total)
     except (AgentUnavailable, AgentInvalidResponse):
         action = "display_together"
     return {"tip": {
-        "products": [products[item_id] for item_id in pair],
+        "products": [products[primary], products[companion]],
         "together": together,
         "total": total,
-        "share": share,
-        "window_days": WINDOW_DAYS,
+        "share": round(100 * together / total),
+        "primary_total": primary_total,
+        "primary_share": primary_share,
+        "target_share": min(100, primary_share + 10) if primary_share < 100 else None,
+        "window_days": PAIR_WINDOW_DAYS,
         "action": action,
     }}

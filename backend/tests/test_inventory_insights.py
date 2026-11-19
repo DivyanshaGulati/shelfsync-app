@@ -268,11 +268,12 @@ def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, 
 
     with factory.begin() as db:
         other = InventoryItem(name="Pipe", sku="TEST-PIPE", category="Plumbing", unit="pcs")
-        db.add(other)
+        unrelated = InventoryItem(name="Hinges", sku="TEST-HINGE", category="Hardware", unit="pcs")
+        db.add_all([other, unrelated])
         db.flush()
-        for index in range(10):
+        for index in range(15):
             group = uuid4()
-            item_ids = [1, 1, other.id] if index < 3 else [1]
+            item_ids = [1, 1, other.id] if index < 3 else [1] if index < 10 else [unrelated.id]
             for item_id in item_ids:
                 db.add(Transaction(user_id=2, inventory_item_id=item_id, transaction_type="CHECKOUT",
                                    quantity=1, idempotency_key=f"checkout-cart-{group}-{uuid4()}"))
@@ -280,7 +281,7 @@ def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, 
                            quantity=1, idempotency_key="legacy-checkout"))
         db.add(Transaction(user_id=2, inventory_item_id=other.id, transaction_type="CHECKOUT",
                            quantity=1, idempotency_key=f"checkout-cart-{uuid4()}-{uuid4()}",
-                           created_at=datetime.now(timezone.utc) - timedelta(days=31)))
+                           created_at=datetime.now(timezone.utc) - timedelta(days=8)))
 
     def choose(*, together, total):
         assert (together, total) == (3, 10)
@@ -290,8 +291,9 @@ def test_growth_tip_counts_paired_checkouts_and_excludes_untracked_lines(setup, 
     response = client.get(url, headers=owner)
     assert response.status_code == 200, response.text
     assert response.json()["tip"] == {
-        "products": ["Teflon Tape", "Pipe"], "together": 3, "total": 10, "share": 30,
-        "window_days": 30, "action": "test_bundle",
+        "products": ["Teflon Tape", "Pipe"], "together": 3, "total": 15, "share": 20,
+        "primary_total": 10, "primary_share": 30, "target_share": 40,
+        "window_days": 7, "action": "test_bundle",
     }
 
 
