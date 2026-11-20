@@ -27,12 +27,6 @@ from app.db.models import InventoryInsightReport, InventoryItem, OrderItem, Purc
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
 InitialOrderQuantity = Annotated[int, Field(strict=True, gt=0, le=2_147_483_647)]
-EstimatedDailyDemand = Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=4)]
-EstimatedLeadTime = Annotated[Decimal, Field(gt=0, max_digits=6, decimal_places=3)]
-FORECAST_ESTIMATES = {
-    "estimated_daily_demand": ("avg_daily_demand", "demand_std_dev"),
-    "estimated_lead_time_days": ("avg_lead_time_days", "lead_time_std_dev"),
-}
 
 
 def validate_thumbnail(value: str) -> str:
@@ -77,8 +71,6 @@ class ItemFields(BaseModel):
 class ItemCreate(ItemFields):
     model_config = ConfigDict(extra="forbid")
     initial_order_quantity: InitialOrderQuantity | None = None
-    estimated_daily_demand: EstimatedDailyDemand | None = None
-    estimated_lead_time_days: EstimatedLeadTime | None = None
 
 
 class ItemUpdate(BaseModel):
@@ -91,8 +83,6 @@ class ItemUpdate(BaseModel):
     unit: str | None = Field(default=None, min_length=1, max_length=40)
     unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     initial_order_quantity: InitialOrderQuantity | None = None
-    estimated_daily_demand: EstimatedDailyDemand | None = None
-    estimated_lead_time_days: EstimatedLeadTime | None = None
 
     @field_validator("name", "sku", "category", "unit")
     @classmethod
@@ -122,8 +112,6 @@ class ItemResponse(BaseModel):
     unit_cost: Decimal
     on_hand: int
     reserved_qty: int
-    estimated_daily_demand: Decimal | None = None
-    estimated_lead_time_days: Decimal | None = None
     avg_daily_demand: Decimal
     demand_std_dev: Decimal
     avg_lead_time_days: Decimal
@@ -149,7 +137,7 @@ def item_or_404(db: Session, item_id: int, *, lock: bool = False) -> InventoryIt
 
 def save_item(
     db: Session, item: InventoryItem, *, initial_order_quantity: int | None,
-    owner_id: int, background_tasks: BackgroundTasks, refresh_forecast: bool,
+    owner_id: int, background_tasks: BackgroundTasks,
 ) -> InventoryItem:
     try:
         db.add(item)
@@ -162,8 +150,6 @@ def save_item(
     if initial_order_quantity is not None:
         order = create_purchase_request(db, item, initial_order_quantity, created_by=owner_id)
         order_id = order.id
-    if refresh_forecast:
-        calculate_forecast(db, item, persist=True)
     db.commit()
     if order_id is not None and mock_purchasing_enabled():
         background_tasks.add_task(process_in_background, db.get_bind(), order_id)
@@ -383,7 +369,6 @@ def create_item(
     return save_item(
         db, item, initial_order_quantity=data.initial_order_quantity,
         owner_id=owner.id, background_tasks=background_tasks,
-        refresh_forecast=any(getattr(item, key) is not None for key in FORECAST_ESTIMATES),
     )
 
 
@@ -396,8 +381,7 @@ def update_item(
     background_tasks: BackgroundTasks,
 ):
     quantity = data.initial_order_quantity
-    estimate_fields = FORECAST_ESTIMATES.keys() & data.model_fields_set
-    item = item_or_404(db, item_id, lock=quantity is not None or bool(estimate_fields))
+    item = item_or_404(db, item_id, lock=quantity is not None)
     if quantity is not None:
         existing_order = db.scalar(
             select(PurchaseOrder.id).where(PurchaseOrder.inventory_item_id == item_id).limit(1)
@@ -407,20 +391,12 @@ def update_item(
                 status_code=409, detail="A first order requires zero on-hand stock and no previous purchase orders",
             )
     updates = data.model_dump(exclude_unset=True, exclude={"initial_order_quantity"})
-    nullable_fields = {"description", "thumbnail", *FORECAST_ESTIMATES}
-    if any(value is None for key, value in updates.items() if key not in nullable_fields):
+    if any(value is None for key, value in updates.items() if key not in {"description", "thumbnail"}):
         raise HTTPException(status_code=422, detail="Required item fields cannot be null")
-    changed_estimates = {key for key in estimate_fields if updates[key] != getattr(item, key)}
-    for key in changed_estimates:
-        if updates[key] is None:
-            # Clear the cached fallback so the old estimate cannot be reused.
-            for metric in FORECAST_ESTIMATES[key]:
-                setattr(item, metric, Decimal(0))
     for key, value in updates.items():
         setattr(item, key, value)
     return save_item(
         db, item, initial_order_quantity=quantity, owner_id=owner.id, background_tasks=background_tasks,
-        refresh_forecast=bool(changed_estimates),
     )
 
 
@@ -430,6 +406,6 @@ def inventory_forecast(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[User, Depends(require_roles("OWNER", "EMPLOYEE"))],
 ):
-    """Read-only live projection of the current forecast."""
+    """Read-only live projection; only checkout/receipt persist forecast logs."""
     item = item_or_404(db, item_id)
     return calculate_forecast(db, item)
