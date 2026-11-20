@@ -66,6 +66,8 @@ class InventoryItem(Base):
     reserved_qty: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     unit: Mapped[str] = mapped_column(String(40), nullable=False)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), server_default=text("0"), nullable=False)
+    estimated_daily_demand: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
+    estimated_lead_time_days: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
     avg_daily_demand: Mapped[Decimal] = mapped_column(Numeric(14, 4), server_default=text("0"), nullable=False)
     demand_std_dev: Mapped[Decimal] = mapped_column(Numeric(14, 4), server_default=text("0"), nullable=False)
     avg_lead_time_days: Mapped[Decimal] = mapped_column(Numeric(10, 3), server_default=text("0"), nullable=False)

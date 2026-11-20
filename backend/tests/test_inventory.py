@@ -1,4 +1,6 @@
 """Inventory API tests exercise the real JWT dependencies and SQLAlchemy persistence."""
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -83,6 +85,34 @@ def test_owner_creates_item_with_safe_stock_defaults(client):
         assert db.get(InventoryItem, result["id"]).sku == "HW-NEW-01"
         assert db.scalar(select(PurchaseOrder)) is None
     assert http.post("/api/inventory", headers=owner, json=data).status_code == 409
+
+
+def test_reorder_point_is_saved_for_new_and_existing_items(client):
+    http, factory, owner, employee = client
+    estimates = {"estimated_daily_demand": "2.5", "estimated_lead_time_days": "4"}
+    data = {"name": "New Hinges", "sku": "HW-NEW-01", "category": "Hardware",
+            "unit": "pair", "unit_cost": "150.00", **estimates}
+    created = http.post("/api/inventory", headers=owner, json=data)
+    assert created.status_code == 201, created.text
+    assert Decimal(created.json()["reorder_point"]) == 10
+    assert created.json()["low_confidence"] is True
+
+    updated = http.patch("/api/inventory/1", headers=owner, json=estimates)
+    assert updated.status_code == 200, updated.text
+    assert Decimal(updated.json()["reorder_point"]) == 10
+    assert updated.json()["on_hand"] == 20
+    listed = http.get("/api/inventory?q=PL-TEF-01", headers=employee).json()["items"][0]
+    assert Decimal(listed["reorder_point"]) == 10
+    forecast = http.get("/api/inventory/1/forecast", headers=owner).json()
+    assert Decimal(forecast["reorder_point"]) == 10
+    with factory() as db:
+        assert db.scalar(select(PurchaseOrder)) is None
+
+    invalid = http.patch("/api/inventory/1", headers=owner, json={"estimated_lead_time_days": -1})
+    assert invalid.status_code == 422
+    cleared = http.patch("/api/inventory/1", headers=owner, json={"estimated_daily_demand": None})
+    assert cleared.status_code == 200, cleared.text
+    assert Decimal(cleared.json()["reorder_point"]) == 0
 
 
 def test_item_thumbnail_is_saved_listed_and_removed(client):

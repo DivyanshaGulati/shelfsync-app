@@ -2,7 +2,7 @@
 
 All date windows use UTC calendar days including today, with zero-consumption
 calendar days included. The service writes only when persist=True, and the caller
-must commit the same DB transaction as the checkout/receipt that invoked it.
+must commit those writes in the same transaction as the inventory change.
 """
 from __future__ import annotations
 
@@ -78,13 +78,19 @@ def calculate_forecast(db: Session, item: InventoryItem, *, persist: bool = Fals
 
     # Prefer observed demand. For a truly new item, use its configured baseline.
     # No synthetic purchases/deliveries are created to fill history gaps.
-    if not confidence_demand and not events and item.avg_daily_demand:
-        demand = float(item.avg_daily_demand)
-        sigma_d = float(item.demand_std_dev)
+    if not events:
+        if item.estimated_daily_demand is not None:
+            demand = float(item.estimated_daily_demand)
+        elif item.avg_daily_demand:
+            demand = float(item.avg_daily_demand)
+            sigma_d = float(item.demand_std_dev)
 
     if confidence_lead:
         lead = mean(lead_samples)
         sigma_l = pstdev(lead_samples)
+    elif item.estimated_lead_time_days is not None:
+        lead = float(item.estimated_lead_time_days)
+        sigma_l = 0.0
     else:
         # The item's configured baseline (if any) wins; otherwise the mapped
         # preferred vendor's expected lead time, then other active mappings.

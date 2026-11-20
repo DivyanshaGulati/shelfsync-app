@@ -60,6 +60,9 @@ def test_safety_stock_uses_both_demand_and_lead_variance(database):
     now = datetime(2026, 11, 15, 12, tzinfo=timezone.utc)
     quantities = [2 if i % 2 else 6 for i in range(30)]
     with database.begin() as db:
+        item = db.get(InventoryItem, 1)
+        item.estimated_daily_demand = Decimal("12")
+        item.estimated_lead_time_days = Decimal("10")
         make_history(db, now.date() - timedelta(days=29), quantities)
         for n, lead in enumerate([2, 4, 6]):
             placed = datetime(2026, 9, 1 + n * 7, tzinfo=timezone.utc)

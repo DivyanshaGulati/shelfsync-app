@@ -13,7 +13,10 @@ import { useStockStatusRefresh } from '../lib/useStockStatusRefresh.js'
 import Sidebar from '../components/Sidebar.jsx'
 
 const categories = ['Fasteners', 'Plumbing', 'Electrical', 'Tools & Adhesives', 'Hardware Fittings']
-const emptyForm = { name: '', sku: '', category: 'Fasteners', description: '', unit: 'pcs', unit_cost: '0.00' }
+const emptyForm = {
+  name: '', sku: '', category: 'Fasteners', description: '', unit: 'pcs', unit_cost: '0.00',
+  estimated_daily_demand: '', estimated_lead_time_days: '',
+}
 const rupees = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
 
 export default function InventoryPage() {
@@ -65,7 +68,12 @@ export default function InventoryPage() {
     const canRequestFirstOrder = !item ||
       (item.on_hand === 0 && !orders.some(order => order.inventory_item_id === item.id))
     setInitialOrderQuantity(canRequestFirstOrder ? '' : null)
-    setForm(item ? { name: item.name, sku: item.sku, category: item.category, description: item.description || '', unit: item.unit, unit_cost: String(item.unit_cost) } : { ...emptyForm })
+    setForm(item ? {
+      name: item.name, sku: item.sku, category: item.category, description: item.description || '',
+      unit: item.unit, unit_cost: String(item.unit_cost),
+      estimated_daily_demand: item.estimated_daily_demand ?? '',
+      estimated_lead_time_days: item.estimated_lead_time_days ?? '',
+    } : { ...emptyForm })
   }
   async function choosePhoto(event) {
     const file = event.target.files[0]
@@ -87,6 +95,8 @@ export default function InventoryPage() {
     setSaving(true); setError('')
     try {
       const body = { ...form, name: form.name.trim(), sku: form.sku.trim(), category: form.category.trim(), unit: form.unit.trim(), unit_cost: form.unit_cost, description: form.description.trim() || null }
+      body.estimated_daily_demand = form.estimated_daily_demand || null
+      body.estimated_lead_time_days = form.estimated_lead_time_days || null
       if (photoChange !== undefined) body.thumbnail = photoChange
       const requestFirstOrder = initialOrderQuantity !== null && initialOrderQuantity !== ''
       if (requestFirstOrder) body.initial_order_quantity = Number(initialOrderQuantity)
@@ -119,6 +129,17 @@ export default function InventoryPage() {
     <section className="panel inventory-panel"><div className="inventory-toolbar"><label>Search items<input aria-label="Search items" placeholder="Search by item name or SKU" value={search} onChange={e => setSearch(e.target.value)}/></label><label>Category<select aria-label="Category filter" value={category} onChange={e => setCategory(e.target.value)}>{['All categories', ...new Set([...categories, ...items.map(i => i.category)])].map(c => <option key={c}>{c}</option>)}</select></label><span className="inventory-count">{filtered.length} of {rows.length} items</span></div>
     <div className="table-scroll"><table><thead><tr><th>Item / SKU</th><th>Category</th><th>On hand</th><th>On order</th><th>Reserved</th><th>Reorder point</th><th>Position</th><th>Status</th><th>Unit cost</th><th>Action</th></tr></thead><tbody>{filtered.map(item => <tr key={item.id}><td><ProductIdentity name={item.name} sku={item.sku} unit={item.unit} category={item.category} thumbnail={item.thumbnail} /></td><td><span className="category-pill" data-category={item.category}>{item.category}</span></td><td>{item.on_hand}</td><td>{item.onOrder}</td><td>{item.reserved_qty}</td><td>{Number(item.reorder_point).toFixed(1)}</td><td>{item.position}</td><td><span className={item.low ? 'stock-pill low' : 'stock-pill healthy'}>{item.low ? 'Low Stock' : 'Healthy'}</span></td><td>{rupees.format(Number(item.unit_cost))}</td><td><button className="button-light" onClick={() => openForm(item)}>Edit</button></td></tr>)}{!loading && filtered.length === 0 && <tr><td colSpan="10" className="empty">No matching inventory items.</td></tr>}</tbody></table></div>{loading && <p className="subtle">Loading inventory and purchase orders…</p>}</section>
     {editing !== null && <div className="modal-backdrop"><section className="item-dialog" role="dialog" aria-modal="true" aria-label={editing === 'new' ? 'Add item' : 'Edit item'}><h2>{editing === 'new' ? 'Add inventory item' : 'Edit item details'}</h2><form onSubmit={save}>{[['name','Item name'],['sku','SKU'],['category','Category'],['unit','Unit'],['unit_cost','Unit cost (INR)']].map(([key,label]) => <label key={key}>{label}{key === 'category' ? <><input list="shelfsync-categories" required maxLength="100" value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}/><datalist id="shelfsync-categories">{categories.map(c => <option key={c} value={c}/>)}</datalist></> : <input required maxLength={key === 'name' ? 200 : key === 'sku' ? 64 : 40} type={key === 'unit_cost' ? 'number' : 'text'} min={key === 'unit_cost' ? 0 : undefined} step={key === 'unit_cost' ? '.01' : undefined} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}/>}</label>)}
+    <label>Estimated daily demand (optional)
+      <input type="number" min="0.0001" max="999999.9999" step="0.0001" placeholder="Units used per day"
+        value={form.estimated_daily_demand}
+        onChange={e => setForm(f => ({ ...f, estimated_daily_demand: e.target.value }))} />
+    </label>
+    <label>Estimated vendor lead time (optional)
+      <input type="number" min="0.001" max="999.999" step="0.001" placeholder="Days until delivery"
+        value={form.estimated_lead_time_days}
+        onChange={e => setForm(f => ({ ...f, estimated_lead_time_days: e.target.value }))} />
+    </label>
+    <span className="subtle full">Enter estimates to calculate a reorder point while ShelfSync gathers checkout and delivery history.</span>
     {initialOrderQuantity !== null && <label>
       First order quantity (optional)
       <input type="number" min="1" max="2147483647" step="1" value={initialOrderQuantity}

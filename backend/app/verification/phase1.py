@@ -40,6 +40,7 @@ EXPECTED_REVISIONS = {
     "0011_inventory_insight_reports",
     "0012_item_thumbnails",
     "0013_vendor_bills",
+    "0014_forecast_estimates",
 }
 REQUIRED_INDEXES = {
     "vendor_items": {"ix_vendor_items_one_preferred"},
