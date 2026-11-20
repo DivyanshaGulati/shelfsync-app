@@ -22,12 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def enabled() -> bool:
-    return (
-        settings.enable_mock_purchasing
-        and settings.enable_quote_simulation
-        and settings.email_mode.strip().lower() == "mock"
-        and not settings.enable_real_email_dispatch
-    )
+    return settings.mock_purchasing_enabled
 
 
 def require_mock_mode() -> None:

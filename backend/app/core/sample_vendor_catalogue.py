@@ -21,6 +21,8 @@ SAMPLE_VENDORS = (
 )
 CENT = Decimal("0.01")
 MAX_PRICE = Decimal("9999999999.99")  # VendorItem Numeric(12, 2)
+SAMPLE_ECONOMY_LEAD_DAYS = 4
+SAMPLE_EXPRESS_LEAD_DAYS = 2
 
 
 SAMPLE_VENDOR_NAMES = {spec["email"]: spec["name"] for spec in SAMPLE_VENDORS}
@@ -67,7 +69,10 @@ def sync_sample_quotes(db: Session, *, item_id: int | None = None) -> None:
     missing = []
     for inventory_id, unit_cost in db.execute(items):
         economy, express = sample_prices(unit_cost)
-        for vendor_id, price, days in ((economy_id, economy, 4), (express_id, express, 2)):
+        for vendor_id, price, days in (
+            (economy_id, economy, SAMPLE_ECONOMY_LEAD_DAYS),
+            (express_id, express, SAMPLE_EXPRESS_LEAD_DAYS),
+        ):
             if (inventory_id, vendor_id) not in existing:
                 missing.append({
                     "inventory_item_id": inventory_id, "vendor_id": vendor_id,

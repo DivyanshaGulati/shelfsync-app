@@ -1,4 +1,6 @@
 """Inventory API tests exercise the real JWT dependencies and SQLAlchemy persistence."""
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -11,7 +13,7 @@ from app.core.config import settings
 from app.core.quote_comparison import compare_quotations
 from app.core.security import hash_password
 from app.db.dependencies import get_db
-from app.db.models import InventoryItem, PurchaseOrder, PurchaseOrderEmailDispatch, User
+from app.db.models import InventoryItem, PurchaseOrder, PurchaseOrderEmailDispatch, User, VendorQuotation
 from app.db.session import Base
 from app.main import app
 
@@ -159,6 +161,14 @@ def test_first_order_uses_existing_purchasing_workflow(client, monkeypatch, quan
     assert orders[0]["status"] == status
     with factory() as db:
         assert db.get(InventoryItem, item["id"]).on_hand == 0
+        quotes = db.scalars(select(VendorQuotation).where(
+            VendorQuotation.inventory_item_id == item["id"],
+            VendorQuotation.is_simulated.is_(True),
+        )).all()
+        expected_prices = set() if mock_mode == "real_dispatch_enabled" else {
+            (Decimal("157.50"), Decimal("4")), (Decimal("169.50"), Decimal("2")),
+        }
+        assert {(quote.quoted_unit_price, quote.quoted_lead_time_days) for quote in quotes} == expected_prices
         audit = db.scalar(select(PurchaseOrderEmailDispatch))
         if dispatch:
             assert audit.mode == "mock" and audit.status == "MOCKED"

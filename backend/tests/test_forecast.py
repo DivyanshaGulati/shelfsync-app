@@ -12,9 +12,11 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.core.forecast import calculate_forecast
+from app.core.sample_vendor_catalogue import SAMPLE_VENDORS
 from app.core.security import hash_password
 from app.db.dependencies import get_db
-from app.db.models import AIThresholdLog, InventoryItem, OrderItem, PurchaseOrder, Transaction, User, Vendor, VendorItem
+from app.db.models import AIThresholdLog, InventoryItem, OrderItem, PurchaseOrder, Transaction, User, Vendor, VendorItem, VendorQuotation
+from app.db.refresh_reorder_points import refresh_missing_reorder_points
 from app.db.session import Base
 from app.main import app
 
@@ -109,6 +111,64 @@ def test_no_history_uses_configured_demand_and_vendor_lead_time(database):
         assert result["avg_lead_time_days"] == Decimal("3.000")
         assert result["low_confidence"] is True
         assert result["suggested_order_quantity"] >= 0
+
+
+def test_mock_catalogue_fills_missing_lead_time_and_recovers_stored_reorder_point(database, monkeypatch):
+    monkeypatch.setattr(settings, "enable_mock_purchasing", True)
+    monkeypatch.setattr(settings, "enable_quote_simulation", True)
+    monkeypatch.setattr(settings, "email_mode", "mock")
+    monkeypatch.setattr(settings, "enable_real_email_dispatch", False)
+    now = datetime.now(timezone.utc)
+    with database.begin() as db:
+        assert calculate_forecast(db, db.get(InventoryItem, 1))["avg_lead_time_days"] == 3
+        vendor = db.get(Vendor, 1)
+        vendor.is_active = False
+        db.flush()
+        assert calculate_forecast(db, db.get(InventoryItem, 1))["avg_lead_time_days"] == 0
+        vendor.name = SAMPLE_VENDORS[0]["name"]
+        vendor.email = SAMPLE_VENDORS[0]["email"]
+        db.flush()
+        assert calculate_forecast(db, db.get(InventoryItem, 1))["avg_lead_time_days"] == 4
+        order = PurchaseOrder(
+            inventory_item_id=1, vendor_id=1, mock_order=True, status="RECEIVED",
+            placed_at=now - timedelta(minutes=5), completed_at=now,
+        )
+        db.add(order)
+        db.flush()
+        quote = VendorQuotation(
+            purchase_order_id=order.id, inventory_item_id=1, vendor_id=1,
+            status="RECEIVED", is_simulated=True, quoted_unit_price=20,
+            quoted_lead_time_days=2, responded_at=order.placed_at,
+        )
+        db.add(quote)
+        db.flush()
+        assert calculate_forecast(db, db.get(InventoryItem, 1))["avg_lead_time_days"] == 4
+        quote.status = "SELECTED"
+        db.flush()
+        result = calculate_forecast(db, db.get(InventoryItem, 1))
+        assert result["avg_lead_time_days"] == 2
+        assert result["reorder_point"] == 0
+        with monkeypatch.context() as live:
+            live.setattr(settings, "enable_real_email_dispatch", True)
+            assert calculate_forecast(db, db.get(InventoryItem, 1))["avg_lead_time_days"] == 0
+        make_history(db, now.date(), [5])
+
+    with database.begin() as db:
+        results = refresh_missing_reorder_points(db, {"PL-TEF-01"})
+        assert results["PL-TEF-01"].startswith("Reorder point updated")
+
+    with database.begin() as db:
+        item = db.get(InventoryItem, 1)
+        assert item.reorder_point > 0
+        assert item.avg_lead_time_days == 0
+        assert item.low_confidence is True
+        assert item.on_hand == 50
+        assert refresh_missing_reorder_points(db, {"PL-TEF-01"})["PL-TEF-01"].endswith("was kept")
+        audit = db.scalar(select(AIThresholdLog))
+        assert audit.avg_lead_time_days == 2
+        assert audit.reorder_point == item.reorder_point
+        assert db.scalar(select(func.count()).select_from(AIThresholdLog)) == 1
+        assert db.scalar(select(func.count()).select_from(PurchaseOrder)) == 1
 
 
 def test_reorder_decision_uses_inventory_position_not_on_hand(database):

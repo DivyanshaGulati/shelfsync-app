@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
+    def mock_purchasing_enabled(self) -> bool:
+        return (
+            self.enable_mock_purchasing
+            and self.enable_quote_simulation
+            and self.email_mode.strip().lower() == "mock"
+            and not self.enable_real_email_dispatch
+        )
+
+    @property
     def allowed_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 

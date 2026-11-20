@@ -16,9 +16,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.sample_vendor_catalogue import SAMPLE_ECONOMY_LEAD_DAYS, is_sample_vendor
 from app.db.models import (
     AIThresholdLog, InventoryItem, OrderItem, PurchaseOrder, Transaction,
-    Vendor, VendorItem,
+    Vendor, VendorItem, VendorQuotation,
 )
 
 ACTIVE_ON_ORDER_STATUSES = ("PLACED", "PARTIALLY_RECEIVED")
@@ -82,6 +83,7 @@ def calculate_forecast(db: Session, item: InventoryItem, *, persist: bool = Fals
         demand = float(item.avg_daily_demand)
         sigma_d = float(item.demand_std_dev)
 
+    using_sample_lead = False
     if confidence_lead:
         lead = mean(lead_samples)
         sigma_l = pstdev(lead_samples)
@@ -90,13 +92,40 @@ def calculate_forecast(db: Session, item: InventoryItem, *, persist: bool = Fals
         # preferred vendor's expected lead time, then other active mappings.
         mappings = db.execute(select(VendorItem, Vendor).join(
             Vendor, VendorItem.vendor_id == Vendor.id
-        ).where(VendorItem.inventory_item_id == item.id, Vendor.is_active.is_(True))).all()
+        ).where(VendorItem.inventory_item_id == item.id)).all()
         expected = sorted(
-            (m for m, _v in mappings if m.expected_lead_time_days is not None),
+            (m for m, vendor in mappings if vendor.is_active and m.expected_lead_time_days is not None),
             key=lambda m: (not m.is_preferred, m.id),
         )
         lead = float(item.avg_lead_time_days or 0) or (float(expected[0].expected_lead_time_days) if expected else 0.0)
         sigma_l = float(item.lead_time_std_dev or 0)
+        if settings.mock_purchasing_enabled and not lead_samples and all(
+            is_sample_vendor(vendor) for _, vendor in mappings
+        ):
+            # Sample vendors are inactive. Use the accepted quote's promised
+            # lead time instead of measuring the simulated delivery clicks.
+            quoted_days = db.scalar(
+                select(VendorQuotation.quoted_lead_time_days)
+                .join(PurchaseOrder, PurchaseOrder.id == VendorQuotation.purchase_order_id)
+                .where(
+                    PurchaseOrder.inventory_item_id == item.id,
+                    PurchaseOrder.mock_order.is_(True),
+                    PurchaseOrder.placed_at <= now,
+                    PurchaseOrder.status.in_((*ACTIVE_ON_ORDER_STATUSES, "RECEIVED")),
+                    VendorQuotation.vendor_id == PurchaseOrder.vendor_id,
+                    VendorQuotation.status == "SELECTED",
+                    VendorQuotation.is_simulated.is_(True),
+                    VendorQuotation.quoted_lead_time_days > 0,
+                )
+                .order_by(PurchaseOrder.placed_at.desc(), PurchaseOrder.id.desc())
+                .limit(1)
+            )
+            if quoted_days is not None:
+                lead = float(quoted_days)
+                using_sample_lead = True
+            elif lead == 0:
+                lead = float(SAMPLE_ECONOMY_LEAD_DAYS)
+                using_sample_lead = True
 
     outstanding = db.execute(select(OrderItem, PurchaseOrder).join(
         PurchaseOrder, OrderItem.purchase_order_id == PurchaseOrder.id
@@ -138,6 +167,8 @@ def calculate_forecast(db: Session, item: InventoryItem, *, persist: bool = Fals
     if persist:
         for name in ("avg_daily_demand", "demand_std_dev", "avg_lead_time_days",
                      "lead_time_std_dev", "safety_stock", "reorder_point", "low_confidence"):
+            if name == "avg_lead_time_days" and using_sample_lead:
+                continue  # Keep simulated lead times out of the reusable item baseline.
             setattr(item, name, result[name])
         db.add(AIThresholdLog(
             inventory_item_id=item.id,
