@@ -135,7 +135,7 @@ def run_tool(db: Session, order: PurchaseOrder, name: str, arguments: dict) -> d
     raise AgentInvalidResponse('Unrecognized or forbidden AI tool')
 
 
-def call_messages(payload: dict) -> dict:
+def call_messages(payload: dict, *, api_version: str = API_VERSION) -> dict:
     key = settings.claude_api_key.strip()
     if not key:
         raise AgentConfigurationError('CLAUDE_API_KEY not configured')
@@ -145,7 +145,7 @@ def call_messages(payload: dict) -> dict:
         with httpx.Client(timeout=20) as client:
             response = client.post(API_URL, headers={
                 'x-api-key': key,
-                'anthropic-version': API_VERSION,
+                'anthropic-version': api_version,
                 'content-type': 'application/json',
             }, json=payload)
             response.raise_for_status()

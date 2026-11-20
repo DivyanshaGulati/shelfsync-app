@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, Numeric,
+    Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, LargeBinary, Numeric,
     String, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -186,6 +186,14 @@ class PurchaseOrder(Base):
     order_items: Mapped[list[OrderItem]] = relationship(back_populates="purchase_order", foreign_keys="OrderItem.purchase_order_id")
     quotations: Mapped[list[VendorQuotation]] = relationship(back_populates="purchase_order", foreign_keys="VendorQuotation.purchase_order_id")
     approval_logs: Mapped[list[ApprovalLog]] = relationship(back_populates="purchase_order")
+
+
+class VendorBill(Base):
+    __tablename__ = "vendor_bills"
+
+    purchase_order_id: Mapped[int] = mapped_column(ForeignKey("purchase_orders.id", ondelete="CASCADE"), primary_key=True)
+    image: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    check_status: Mapped[str] = mapped_column(String(16), nullable=False)
 
 
 class OrderItem(Base):

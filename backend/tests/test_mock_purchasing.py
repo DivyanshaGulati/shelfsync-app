@@ -258,3 +258,62 @@ def test_existing_waiting_order_recovers_after_invalid_provider_output(setup, mo
         assert db.scalar(select(func.count()).select_from(PurchaseOrderEmailDispatch)) == 1
         assert db.scalar(select(func.count()).select_from(QuotationEmailDispatch)) == 2
         assert db.get(InventoryItem, 1).on_hand == 1
+
+
+@pytest.mark.parametrize(('outcome', 'check_status'), [
+    ('match', 'MATCHED'), ('mismatch', 'MISMATCH'), ('offline', 'UNAVAILABLE'),
+])
+def test_delivered_mock_bill_preview(setup, monkeypatch, select_simulated_quote, outcome, check_status):
+    from base64 import b64decode
+    from datetime import timedelta
+    from io import BytesIO
+
+    from PIL import Image
+
+    from app.core import vendor_bills
+    from app.db.models import VendorBill
+
+    client, factory, owner, employee = setup
+    enable_mock(monkeypatch)
+    with factory.begin() as db:
+        sync_sample_quotes(db, item_id=1)
+    order_id = create_request(setup)
+    base = f'/api/purchase-requests/{order_id}'
+    assert client.post(base + '/mock-bill', headers=owner).status_code == 409
+    assert client.post(base + '/mock-transit', headers=owner).status_code == 200
+    assert client.post(base + '/mock-bill', headers=owner).status_code == 409
+    delivered = client.post(base + '/mock-delivery', headers=owner)
+    assert delivered.status_code == 200, delivered.text
+    assert client.post(base + '/mock-bill', headers=employee).status_code == 403
+
+    with factory() as db:
+        order = db.get(PurchaseOrder, order_id)
+        total = order.total_amount
+        invoice_date = (order.completed_at + timedelta(hours=5, minutes=30)).date().isoformat()
+    calls = []
+
+    def read_invoice(payload, *, api_version):
+        assert api_version == '2023-06-01'
+        image = payload['messages'][0]['content'][0]
+        assert image['source']['media_type'] == 'image/png'
+        calls.append(image['source']['data'])
+        if outcome == 'offline':
+            raise AgentUnavailable('Claude unavailable')
+        return {'content': [{'type': 'text', 'text': json.dumps({
+            'invoice_number': f'INV-{order_id:06d}',
+            'invoice_date': invoice_date,
+            'total': str(total + (1 if outcome == 'mismatch' else 0)),
+        })}]}
+
+    monkeypatch.setattr(vendor_bills, 'call_messages', read_invoice)
+    preview = client.post(base + '/mock-bill', headers=owner)
+    assert preview.status_code == 200, preview.text
+    data = preview.json()
+    assert list(data) == ['image']
+    assert Image.open(BytesIO(b64decode(data['image']))).format == 'PNG'
+    assert client.post(base + '/mock-bill', headers=owner).json() == data
+    assert calls == [data['image']]
+    with factory() as db:
+        assert db.get(VendorBill, order_id).check_status == check_status
+        assert db.get(InventoryItem, 1).on_hand == delivered.json()['on_hand']
+        assert db.scalar(select(func.count()).select_from(StockReceipt)) == 1

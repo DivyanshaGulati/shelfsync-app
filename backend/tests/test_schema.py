@@ -42,7 +42,7 @@ def db(tmp_path):
 
 def test_model_relationships_are_valid():
     configure_mappers()
-    assert len(Base.metadata.tables) == 14
+    assert len(Base.metadata.tables) == 15
 
 
 def test_migration_matches_models(db):

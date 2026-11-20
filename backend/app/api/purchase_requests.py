@@ -2,20 +2,22 @@
 
 Includes quotation collection, vendor comparison, authorization and receiving.
 """
-from datetime import datetime
+from base64 import b64encode
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from app.api.auth import require_roles
 from app.core import mock_purchasing
 from app.core.sample_vendor_catalogue import is_sample_vendor
+from app.core.vendor_bills import BillDetails, render_bill, verify_bill
 from app.db.dependencies import get_db
-from app.db.models import OrderItem, PurchaseOrder, User, Vendor, VendorQuotation
+from app.db.models import OrderItem, PurchaseOrder, User, Vendor, VendorBill, VendorQuotation
 
 router = APIRouter(prefix="/api/purchase-requests", tags=["Purchase Requests"])
 
@@ -467,6 +469,47 @@ def record_mock_delivery(
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post('/{order_id}/mock-bill')
+def preview_mock_bill(
+    order_id: int,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(require_roles('OWNER'))],
+):
+    order = db.scalar(select(PurchaseOrder).where(PurchaseOrder.id == order_id).with_for_update())
+    if order is None:
+        raise HTTPException(status_code=404, detail='Purchase request not found')
+    if not order.mock_order or order.status != 'RECEIVED':
+        raise HTTPException(status_code=409, detail='The bill is available after full delivery of a mock order.')
+
+    bill = db.get(VendorBill, order_id)
+    if bill is not None:
+        image = b64encode(bill.image).decode('ascii')
+    else:
+        completed = order.completed_at or order.mock_delivered_at
+        lines = order.order_items
+        if (completed is None or order.vendor is None or order.total_amount is None
+                or len(lines) != 1 or lines[0].unit_price is None
+                or lines[0].received_quantity != lines[0].ordered_quantity
+                or lines[0].unit_price * lines[0].ordered_quantity != order.total_amount):
+            raise HTTPException(status_code=409, detail='This order does not have complete billing details.')
+        if completed.tzinfo is None:
+            completed = completed.replace(tzinfo=timezone.utc)
+        details = BillDetails(
+            invoice_number=f'INV-{order.id:06d}',
+            invoice_date=completed.astimezone(timezone(timedelta(hours=5, minutes=30))).date(),
+            total=order.total_amount,
+        )
+        png = render_bill(order, details)
+        image = b64encode(png).decode('ascii')
+        db.add(VendorBill(purchase_order_id=order_id, image=png, check_status='PENDING'))
+        db.commit()
+        background_tasks.add_task(verify_bill, sessionmaker(bind=db.get_bind()), order_id, image, details)
+    response.headers['Cache-Control'] = 'no-store'
+    return {'image': image}
 
 
 @router.post('/{order_id}/ai-recommendation')

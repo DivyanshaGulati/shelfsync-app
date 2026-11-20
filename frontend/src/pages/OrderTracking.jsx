@@ -1,3 +1,5 @@
+import VendorBillPreview from './VendorBillPreview.jsx'
+
 const labels = { PLACED: 'Order Placed', IN_TRANSIT: 'In Transit', RECEIVED: 'Delivered' }
 
 export function trackingLabel(order) {
@@ -15,5 +17,7 @@ export default function OrderTracking({ order, disabled, onTransit, onDelivery, 
       <button className="button-primary" disabled={disabled} onClick={onTransit}>Mark as In Transit</button>}
     {order.tracking_status === 'IN_TRANSIT' &&
       <button className="button-primary" disabled={disabled} onClick={onDelivery}>Mark as Delivered</button>}
+    {order.mock_order && order.tracking_status === 'RECEIVED' &&
+      <VendorBillPreview key={order.id} orderId={order.id} disabled={disabled} />}
   </>
 }
